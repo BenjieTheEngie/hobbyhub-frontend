@@ -162,9 +162,17 @@ const filteredProducts = products.filter(product => {
 <section className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Products</h2>
   <select
-   value={selectedCategory}
+  value={selectedCategory}
   onChange={(e) => setSelectedCategory(e.target.value)}
-  style={{ marginBottom: "10px", padding: "6px" }}
+  style={{
+    marginBottom: "16px",
+    padding: "8px 12px",
+    borderRadius: "8px",
+    border: "1px solid #ccc",
+    fontSize: "14px",
+    background: "white",
+    cursor: "pointer"
+  }}
 >
   {categories.map((category) => (
     <option key={category} value={category}>
