@@ -230,11 +230,17 @@ const filteredProducts = products.filter((product) =>
     padding: "15px",
     borderRadius: "12px",
     boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-    transition: "transform 0.2s",
+    transition: "transform 0.2s ease, box-shadow 0.2s ease",
     cursor: "pointer"
+   }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.transform = "scale(1.03)";
+    e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.15)";
   }}
-  onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.03)"}
-  onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.transform = "scale(1)";
+    e.currentTarget.style.boxShadow = "0 4px 10px rgba(0,0,0,0.1)";
+  }}
 >
     <h3 style={{ marginBottom: "6px", fontWeight: "bold" }}>
       {product.productName}
