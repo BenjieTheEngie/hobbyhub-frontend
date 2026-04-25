@@ -222,37 +222,41 @@ const filteredProducts = products.filter((product) =>
   gap: "20px",
   marginTop: "20px"
 }}>
-  {filteredProducts.map((product, index) => (
-    <div key={index} style={{
+{filteredProducts.map((product, index) => (
+  <div
+    key={index}
+    style={{
       background: "white",
       padding: "15px",
       borderRadius: "12px",
-      boxShadow: "0 4px 10px rgba(0,0,0,0.1)"
-    }}>
-      <h3 style={{ marginBottom: "6px", fontWeight: "bold" }}>
-        {product.productName}
-      </h3>
+      boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+      transition: "transform 0.2s",
+      cursor: "pointer"
+    }}
+  >
+    <h3 style={{ marginBottom: "6px", fontWeight: "bold" }}>
+      {product.productName}
+    </h3>
 
-      <p style={{ color: "#555" }}>
-        {product.category}
-      </p>
+    <p style={{ color: "#555" }}>
+      {product.category}
+    </p>
 
-      <p style={{
+    <p
+      style={{
         fontWeight: "bold",
         marginTop: "10px",
         fontSize: "18px"
-      }}>
-        ${product.salePrice}
-      </p>
+      }}
+    >
+      ${product.salePrice}
+    </p>
 
-      <p style={{
-        fontSize: "12px",
-        color: "#888"
-      }}>
-        Stock: {product.quantityOnHand}
-      </p>
-    </div>
-  ))}
+    <p style={{ fontSize: "12px", color: "#888" }}>
+      SKU: {product.sku}
+    </p>
+  </div>
+))}
 </div>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
