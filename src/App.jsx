@@ -204,30 +204,6 @@ const filteredProducts = products.filter((product) =>
   </div>
 ))}
 </div>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="p-2">Product</th>
-                  <th className="p-2">SKU</th>
-                  <th className="p-2">Category</th>
-                  <th className="p-2">Price</th>
-                  <th className="p-2">Qty</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((product, index) => (
-                  <tr key={product.productId || product.sku || index} className="border-b">
-                    <td className="p-2">{product.productName}</td>
-                    <td className="p-2">{product.sku}</td>
-                    <td className="p-2">{product.category}</td>
-                    <td className="p-2">{product.salePrice}</td>
-                    <td className="p-2">{product.quantityOnHand}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
           </section>
       <h2 style={{ marginTop: "40px" }}>Admin Tools</h2>
         <section className="grid gap-6 md:grid-cols-2">
