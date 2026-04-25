@@ -150,72 +150,6 @@ const filteredProducts = products.filter((product) =>
 }}>
   <h2 style={{ fontSize: "26px", marginBottom: "8px" }}>Shop the Latest Releases</h2>
   <p>Discover new cards, sets, and hobby products for your store or collection.</p>
-</section>
-      <h2 style={{ marginTop: "40px" }}>Admin Tools</h2>
-        <section className="grid gap-6 md:grid-cols-2">
-          <div className="rounded-2xl bg-white p-6 shadow">
-            <h2 className="text-xl font-semibold">Login</h2>
-            <div className="mt-4 space-y-3">
-              <input
-                className="w-full rounded-lg border p-3"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
-              />
-              <input
-                className="w-full rounded-lg border p-3"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                type="password"
-              />
-              <button className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white" onClick={login}>
-                Login with Cognito
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-white p-6 shadow">
-            <h2 className="text-xl font-semibold">API Controls</h2>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white" onClick={loadDashboard}>
-                Load Dashboard
-              </button>
-              <button className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white" onClick={loadProducts}>
-                Load Products
-              </button>
-            </div>
-            <p className="mt-4 text-sm text-slate-600">{message}</p>
-          </div>
-        </section>
-
-        <section className="rounded-2xl bg-white p-6 shadow">
-          <h2 className="text-xl font-semibold">Dashboard Metrics</h2>
-          <div className="mt-4 grid gap-4 md:grid-cols-4">
-            <Metric label="Suppliers" value={dashboard?.totalSuppliers ?? "--"} />
-            <Metric label="Products" value={dashboard?.totalProducts ?? "--"} />
-            <Metric label="Low Stock" value={dashboard?.lowStockCount ?? "--"} />
-            <Metric label="Pending POs" value={dashboard?.pendingPurchaseOrders ?? "--"} />
-          </div>
-        </section>
-
-        <section className="rounded-2xl bg-white p-6 shadow">
-          <h2 className="text-xl font-semibold">Create Product</h2>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <input className="rounded-lg border p-3" value={productForm.productName} onChange={(e) => updateProductField("productName", e.target.value)} placeholder="Product Name" />
-            <input className="rounded-lg border p-3" value={productForm.sku} onChange={(e) => updateProductField("sku", e.target.value)} placeholder="SKU" />
-            <input className="rounded-lg border p-3" value={productForm.category} onChange={(e) => updateProductField("category", e.target.value)} placeholder="Category" />
-            <input className="rounded-lg border p-3" type="number" value={productForm.salePrice} onChange={(e) => updateProductField("salePrice", Number(e.target.value))} placeholder="Sale Price" />
-            <input className="rounded-lg border p-3" type="number" value={productForm.quantityOnHand} onChange={(e) => updateProductField("quantityOnHand", Number(e.target.value))} placeholder="Quantity" />
-            <input className="rounded-lg border p-3" type="number" value={productForm.reorderPoint} onChange={(e) => updateProductField("reorderPoint", Number(e.target.value))} placeholder="Reorder Point" />
-          </div>
-          <button className="mt-4 rounded-xl bg-green-600 px-4 py-2 font-semibold text-white" onClick={createProduct}>
-            Add Product
-          </button>
-        </section>
-
-        <section className="rounded-2xl bg-white p-6 shadow">
-          <h2 className="text-xl font-semibold">Products</h2>
           <div style={{
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
@@ -290,9 +224,70 @@ const filteredProducts = products.filter((product) =>
               </tbody>
             </table>
           </div>
+          </section>
+      <h2 style={{ marginTop: "40px" }}>Admin Tools</h2>
+        <section className="grid gap-6 md:grid-cols-2">
+          <div className="rounded-2xl bg-white p-6 shadow">
+            <h2 className="text-xl font-semibold">Login</h2>
+            <div className="mt-4 space-y-3">
+              <input
+                className="w-full rounded-lg border p-3"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+              />
+              <input
+                className="w-full rounded-lg border p-3"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                type="password"
+              />
+              <button className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white" onClick={login}>
+                Login with Cognito
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white p-6 shadow">
+            <h2 className="text-xl font-semibold">API Controls</h2>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white" onClick={loadDashboard}>
+                Load Dashboard
+              </button>
+              <button className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white" onClick={loadProducts}>
+                Load Products
+              </button>
+            </div>
+            <p className="mt-4 text-sm text-slate-600">{message}</p>
+          </div>
         </section>
-          <h2 style={{ marginTop: "40px" }}>Admin Tools</h2>
-      </div>
+
+        <section className="rounded-2xl bg-white p-6 shadow">
+          <h2 className="text-xl font-semibold">Dashboard Metrics</h2>
+          <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <Metric label="Suppliers" value={dashboard?.totalSuppliers ?? "--"} />
+            <Metric label="Products" value={dashboard?.totalProducts ?? "--"} />
+            <Metric label="Low Stock" value={dashboard?.lowStockCount ?? "--"} />
+            <Metric label="Pending POs" value={dashboard?.pendingPurchaseOrders ?? "--"} />
+          </div>
+        </section>
+
+        <section className="rounded-2xl bg-white p-6 shadow">
+          <h2 className="text-xl font-semibold">Create Product</h2>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <input className="rounded-lg border p-3" value={productForm.productName} onChange={(e) => updateProductField("productName", e.target.value)} placeholder="Product Name" />
+            <input className="rounded-lg border p-3" value={productForm.sku} onChange={(e) => updateProductField("sku", e.target.value)} placeholder="SKU" />
+            <input className="rounded-lg border p-3" value={productForm.category} onChange={(e) => updateProductField("category", e.target.value)} placeholder="Category" />
+            <input className="rounded-lg border p-3" type="number" value={productForm.salePrice} onChange={(e) => updateProductField("salePrice", Number(e.target.value))} placeholder="Sale Price" />
+            <input className="rounded-lg border p-3" type="number" value={productForm.quantityOnHand} onChange={(e) => updateProductField("quantityOnHand", Number(e.target.value))} placeholder="Quantity" />
+            <input className="rounded-lg border p-3" type="number" value={productForm.reorderPoint} onChange={(e) => updateProductField("reorderPoint", Number(e.target.value))} placeholder="Reorder Point" />
+          </div>
+           <button className="mt-4 rounded-xl bg-green-600 px-4 py-2 font-semibold text-white" onClick={createProduct}>
+            Add Product
+          </button>
+        </section>
+        </div>
     </main>
   );
 }
