@@ -13,6 +13,7 @@ export default function HobbyHubFrontend() {
   const [message, setMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const categories = ["All", ...new Set(products.map(p => p.category))];
 
 const filteredProducts = products.filter(product => {
   const matchesSearch = `${product.productName} ${product.sku} ${product.category}`
@@ -161,14 +162,15 @@ const filteredProducts = products.filter(product => {
 <section className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Products</h2>
   <select
-  value={selectedCategory}
+   value={selectedCategory}
   onChange={(e) => setSelectedCategory(e.target.value)}
   style={{ marginBottom: "10px", padding: "6px" }}
 >
-  <option value="All">All</option>
-  <option value="Magic: The Gathering">Magic: The Gathering</option>
-  <option value="Pokémon">Pokémon</option>
-  <option value="Warhammer">Warhammer</option>
+  {categories.map((category) => (
+    <option key={category} value={category}>
+      {category}
+    </option>
+  ))}
 </select>
   <div style={{
   display: "grid",
