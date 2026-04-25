@@ -12,12 +12,18 @@ export default function HobbyHubFrontend() {
   const [products, setProducts] = useState([]);
   const [message, setMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
-const filteredProducts = products.filter((product) =>
-  (`${product.productName} ${product.sku} ${product.category}`
+const filteredProducts = products.filter(product => {
+  const matchesSearch = `${product.productName} ${product.sku} ${product.category}`
     .toLowerCase()
-    .includes(searchTerm.toLowerCase()))
-);
+    .includes(searchTerm.toLowerCase());
+
+  const matchesCategory =
+    selectedCategory === "All" || product.category === selectedCategory;
+
+  return matchesSearch && matchesCategory;
+});
 
   const [productForm, setProductForm] = useState({
     productName: "Magic Booster Pack",
@@ -154,6 +160,16 @@ const filteredProducts = products.filter((product) =>
 
 <section className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Products</h2>
+  <select
+  value={selectedCategory}
+  onChange={(e) => setSelectedCategory(e.target.value)}
+  style={{ marginBottom: "10px", padding: "6px" }}
+>
+  <option value="All">All</option>
+  <option value="Magic: The Gathering">Magic: The Gathering</option>
+  <option value="Pokémon">Pokémon</option>
+  <option value="Warhammer">Warhammer</option>
+</select>
   <div style={{
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
