@@ -195,7 +195,7 @@ const filteredProducts = products.filter((product) =>
         fontSize: "18px"
       }}
     >
-      ${product.salePrice}
+      ${Math.max(0, product.salePrice).toFixed(2)}
     </p>
 
     <p style={{ fontSize: "12px", color: "#888" }}>
