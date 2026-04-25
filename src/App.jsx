@@ -5,8 +5,8 @@ const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
 const COGNITO_REGION = "us-east-2";
 
 export default function HobbyHubFrontend() {
-  const [email, setEmail] = useState("natecarini@yahoo.com");
-  const [password, setPassword] = useState("Password123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [token, setToken] = useState("");
   const [dashboard, setDashboard] = useState(null);
   const [products, setProducts] = useState([]);
@@ -214,13 +214,13 @@ const filteredProducts = products.filter((product) =>
                 className="w-full rounded-lg border p-3"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
+                placeholder="Enter your email"
               />
               <input
                 className="w-full rounded-lg border p-3"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder="Enter your password"
                 type="password"
               />
               <button className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white" onClick={login}>
