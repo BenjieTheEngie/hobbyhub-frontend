@@ -114,11 +114,36 @@ export default function HobbyHubFrontend() {
     <main className="min-h-screen bg-slate-100 p-6 text-slate-900">
       <div className="mx-auto max-w-6xl space-y-6">
         <header className="rounded-2xl bg-white p-6 shadow">
-          <h1 className="text-3xl font-bold">Hobby Hub SaaS Dashboard</h1>
-          <p className="mt-2 text-slate-600">
-            Frontend prototype connected to AWS Cognito, API Gateway, Lambda, and DynamoDB.
-          </p>
-        </header>
+  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "20px" }}>
+    <div>
+      <h1 className="text-3xl font-bold">Hobby Hub</h1>
+      <p className="mt-2 text-slate-600">
+        Shop cards, tabletop games, and hobby products while managing inventory in one place.
+      </p>
+    </div>
+
+    <input
+      placeholder="Search Magic, Pokémon, Warhammer..."
+      style={{
+        padding: "12px",
+        width: "45%",
+        borderRadius: "10px",
+        border: "1px solid #ccc"
+      }}
+    />
+  </div>
+</header>
+
+<section style={{
+  background: "#2563eb",
+  color: "white",
+  padding: "28px",
+  borderRadius: "16px",
+  marginBottom: "24px"
+}}>
+  <h2 style={{ fontSize: "26px", marginBottom: "8px" }}>Shop the Latest Releases</h2>
+  <p>Discover new cards, sets, and hobby products for your store or collection.</p>
+</section>
 
         <section className="grid gap-6 md:grid-cols-2">
           <div className="rounded-2xl bg-white p-6 shadow">
