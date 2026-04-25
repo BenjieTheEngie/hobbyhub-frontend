@@ -209,6 +209,44 @@ export default function HobbyHubFrontend() {
 
         <section className="rounded-2xl bg-white p-6 shadow">
           <h2 className="text-xl font-semibold">Products</h2>
+          <div style={{
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+  gap: "20px",
+  marginTop: "20px"
+}}>
+  {products.map((product, index) => (
+    <div key={index} style={{
+      background: "white",
+      padding: "15px",
+      borderRadius: "12px",
+      boxShadow: "0 4px 10px rgba(0,0,0,0.1)"
+    }}>
+      <h3 style={{ marginBottom: "6px", fontWeight: "bold" }}>
+        {product.productName}
+      </h3>
+
+      <p style={{ color: "#555" }}>
+        {product.category}
+      </p>
+
+      <p style={{
+        fontWeight: "bold",
+        marginTop: "10px",
+        fontSize: "18px"
+      }}>
+        ${product.salePrice}
+      </p>
+
+      <p style={{
+        fontSize: "12px",
+        color: "#888"
+      }}>
+        Stock: {product.quantityOnHand}
+      </p>
+    </div>
+  ))}
+</div>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
