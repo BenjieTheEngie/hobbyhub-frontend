@@ -291,6 +291,7 @@ const filteredProducts = products.filter((product) =>
             </table>
           </div>
         </section>
+          <h2 style={{ marginTop: "40px" }}>Admin Tools</h2>
       </div>
     </main>
   );
