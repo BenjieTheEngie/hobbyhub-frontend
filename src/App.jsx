@@ -223,17 +223,19 @@ const filteredProducts = products.filter((product) =>
   marginTop: "20px"
 }}>
 {filteredProducts.map((product, index) => (
-  <div
-    key={index}
-    style={{
-      background: "white",
-      padding: "15px",
-      borderRadius: "12px",
-      boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-      transition: "transform 0.2s",
-      cursor: "pointer"
-    }}
-  >
+<div
+  key={index}
+  style={{
+    background: "white",
+    padding: "15px",
+    borderRadius: "12px",
+    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+    transition: "transform 0.2s",
+    cursor: "pointer"
+  }}
+  onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.03)"}
+  onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+>
     <h3 style={{ marginBottom: "6px", fontWeight: "bold" }}>
       {product.productName}
     </h3>
