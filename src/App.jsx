@@ -11,6 +11,13 @@ export default function HobbyHubFrontend() {
   const [dashboard, setDashboard] = useState(null);
   const [products, setProducts] = useState([]);
   const [message, setMessage] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
+const filteredProducts = products.filter((product) =>
+  (`${product.productName} ${product.sku} ${product.category}`
+    .toLowerCase()
+    .includes(searchTerm.toLowerCase()))
+);
 
   const [productForm, setProductForm] = useState({
     productName: "Magic Booster Pack",
@@ -215,7 +222,7 @@ export default function HobbyHubFrontend() {
   gap: "20px",
   marginTop: "20px"
 }}>
-  {products.map((product, index) => (
+  {filteredProducts.map((product, index) => (
     <div key={index} style={{
       background: "white",
       padding: "15px",
