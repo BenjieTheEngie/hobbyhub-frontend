@@ -148,9 +148,13 @@ const filteredProducts = products.filter((product) =>
   borderRadius: "16px",
   marginBottom: "24px"
 }}>
-  <h2 style={{ fontSize: "26px", marginBottom: "8px" }}>Shop the Latest Releases</h2>
-  <p>Discover new cards, sets, and hobby products for your store or collection.</p>
-          <div style={{
+ <h2 style={{ fontSize: "26px", marginBottom: "8px" }}>Shop the Latest Releases</h2>
+<p>Discover new cards, sets, and hobby products for your store or collection.</p>
+</section>
+
+<section className="rounded-2xl bg-white p-6 shadow">
+  <h2 className="text-xl font-semibold">Products</h2>
+  <div style={{
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
   gap: "20px",
