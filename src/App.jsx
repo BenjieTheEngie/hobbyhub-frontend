@@ -180,6 +180,25 @@ const filteredProducts = products.filter(product => {
     </option>
   ))}
 </select>
+<select
+  value={sortOption}
+  onChange={(e) => setSortOption(e.target.value)}
+  style={{
+    marginLeft: "10px",
+    marginBottom: "16px",
+    padding: "8px 12px",
+    borderRadius: "8px",
+    border: "1px solid #ccc",
+    fontSize: "14px",
+    background: "white",
+    cursor: "pointer"
+  }}
+>
+  <option value="default">Sort: Default</option>
+  <option value="price-low">Price: Low to High</option>
+  <option value="price-high">Price: High to Low</option>
+  <option value="name">Name: A to Z</option>
+</select>
   <div style={{
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
