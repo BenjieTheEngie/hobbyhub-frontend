@@ -14,6 +14,7 @@ export default function HobbyHubFrontend() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const categories = ["All", ...new Set(products.map(p => p.category))];
+  const [sortOption, setSortOption] = useState("default");
 
 const filteredProducts = products.filter(product => {
   const matchesSearch = `${product.productName} ${product.sku} ${product.category}`
