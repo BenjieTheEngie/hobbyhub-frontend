@@ -15,6 +15,7 @@ export default function HobbyHubFrontend() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const categories = ["All", ...new Set(products.map(p => p.category))];
   const [sortOption, setSortOption] = useState("default");
+  const [page, setPage] = useState("store");
 
 const filteredProducts = products.filter(product => {
   const matchesSearch = `${product.productName} ${product.sku} ${product.category}`
@@ -149,17 +150,13 @@ const filteredProducts = products.filter(product => {
   </div>
 </header>
 
-<section style={{
-  background: "#2563eb",
-  color: "white",
-  padding: "28px",
-  borderRadius: "16px",
-  marginBottom: "24px"
-}}>
- <h2 style={{ fontSize: "26px", marginBottom: "8px" }}>Shop the Latest Releases</h2>
-<p>Discover new cards, sets, and hobby products for your store or collection.</p>
-</section>
+<div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+  <button onClick={() => setPage("store")}>Storefront</button>
+  <button onClick={() => setPage("admin")}>Admin Dashboard</button>
+</div>
 
+{page === "store" && (
+  <>
 <section className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Products</h2>
   <select
@@ -251,6 +248,11 @@ const filteredProducts = products.filter(product => {
 ))}
 </div>
           </section>
+  </>
+)}
+
+{page === "admin" && (
+  <>
       <h2 style={{ marginTop: "40px" }}>Admin Tools</h2>
         <section className="grid gap-6 md:grid-cols-2">
           <div className="rounded-2xl bg-white p-6 shadow">
@@ -312,11 +314,19 @@ const filteredProducts = products.filter(product => {
            <button className="mt-4 rounded-xl bg-green-600 px-4 py-2 font-semibold text-white" onClick={createProduct}>
             Add Product
           </button>
-        </section>
-        </div>
+     </section>
+      </>
+    )}
+
+      </div>
     </main>
   );
 }
+
+
+
+
+
 
 function Metric({ label, value }) {
   return (
