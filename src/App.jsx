@@ -204,6 +204,36 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
   </button>
 </section>
 <section className="rounded-2xl bg-white p-6 shadow">
+  <h2 className="text-xl font-semibold">Shop by Category</h2>
+
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+      gap: "16px",
+      marginTop: "16px"
+    }}
+  >
+    {["Magic: The Gathering", "Pokémon", "Warhammer", "Accessories"].map((category) => (
+      <div
+        key={category}
+        onClick={() => setSelectedCategory(category)}
+        style={{
+          padding: "20px",
+          borderRadius: "12px",
+          background: "#f8fafc",
+          border: "1px solid #e5e7eb",
+          fontWeight: "bold",
+          textAlign: "center",
+          cursor: "pointer"
+        }}
+      >
+        {category}
+      </div>
+    ))}
+  </div>
+</section>
+<section className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Products</h2>
   <select
   value={selectedCategory}
