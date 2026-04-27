@@ -4,6 +4,37 @@ const API_BASE_URL = "https://13bdy276e1.execute-api.us-east-2.amazonaws.com";
 const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
 const COGNITO_REGION = "us-east-2";
 
+const STATIC_PRODUCTS = [
+  {
+    productName: "Magic Booster Pack",
+    sku: "MTG-001",
+    category: "Magic: The Gathering",
+    salePrice: 5.99,
+    quantityOnHand: 50,
+  },
+  {
+    productName: "Pokémon Elite Trainer Box",
+    sku: "PKM-001",
+    category: "Pokémon",
+    salePrice: 49.99,
+    quantityOnHand: 12,
+  },
+  {
+    productName: "Warhammer Starter Set",
+    sku: "WH-001",
+    category: "Warhammer",
+    salePrice: 65.0,
+    quantityOnHand: 8,
+  },
+  {
+    productName: "Card Sleeves Pack",
+    sku: "ACC-001",
+    category: "Accessories",
+    salePrice: 9.99,
+    quantityOnHand: 100,
+  },
+];
+
 export default function HobbyHubFrontend() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,11 +44,12 @@ export default function HobbyHubFrontend() {
   const [message, setMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const categories = ["All", ...new Set(products.map(p => p.category))];
+  const displayProducts = products.length > 0 ? products : STATIC_PRODUCTS;
+  const categories = ["All", ...new Set(displayProducts.map(p => p.category))];
   const [sortOption, setSortOption] = useState("default");
   const [page, setPage] = useState("store");
 
-const filteredProducts = products.filter(product => {
+  const filteredProducts = displayProducts.filter(product => {
   const matchesSearch = `${product.productName} ${product.sku} ${product.category}`
     .toLowerCase()
     .includes(searchTerm.toLowerCase());
