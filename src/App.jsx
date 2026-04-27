@@ -173,6 +173,36 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
 
 {page === "store" && (
   <>
+  <section
+  style={{
+    background: "linear-gradient(135deg, #2563eb, #1e40af)",
+    color: "white",
+    padding: "32px",
+    borderRadius: "16px",
+    marginBottom: "24px"
+  }}
+>
+  <h2 style={{ fontSize: "28px", fontWeight: "bold", marginBottom: "10px" }}>
+    Shop the Latest Releases
+  </h2>
+
+  <p style={{ marginBottom: "16px", color: "#e2e8f0" }}>
+    Discover Magic, Pokémon, Warhammer, and more — all in one place.
+  </p>
+
+  <button
+    style={{
+      background: "white",
+      color: "#2563eb",
+      padding: "10px 16px",
+      borderRadius: "8px",
+      fontWeight: "600",
+      cursor: "pointer"
+    }}
+  >
+    Browse Products
+  </button>
+</section>
 <section className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Products</h2>
   <select
