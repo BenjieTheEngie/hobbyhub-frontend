@@ -28,6 +28,22 @@ const filteredProducts = products.filter(product => {
   return matchesSearch && matchesCategory;
 });
 
+const sortedProducts = [...filteredProducts].sort((a, b) => {
+  if (sortOption === "price-low") {
+    return a.salePrice - b.salePrice;
+  }
+
+  if (sortOption === "price-high") {
+    return b.salePrice - a.salePrice;
+  }
+
+  if (sortOption === "name") {
+    return a.productName.localeCompare(b.productName);
+  }
+
+  return 0; // default (no sorting)
+});
+
   const [productForm, setProductForm] = useState({
     productName: "Magic Booster Pack",
     sku: "MTG-001",
@@ -203,7 +219,7 @@ const filteredProducts = products.filter(product => {
   gap: "20px",
   marginTop: "20px"
 }}>
-{filteredProducts.map((product, index) => (
+{sortedProducts.map((product, index) => (
 <div
   key={index}
   style={{
