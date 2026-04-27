@@ -11,6 +11,7 @@ const STATIC_PRODUCTS = [
     category: "Magic: The Gathering",
     salePrice: 5.99,
     quantityOnHand: 50,
+    imageUrl: "https://placehold.co/300x400?text=Magic+Booster",
   },
   {
     productName: "Pokémon Elite Trainer Box",
@@ -18,6 +19,7 @@ const STATIC_PRODUCTS = [
     category: "Pokémon",
     salePrice: 49.99,
     quantityOnHand: 12,
+    imageUrl: "https://placehold.co/300x400?text=Pok%C3%A9mon+ETB",
   },
   {
     productName: "Warhammer Starter Set",
@@ -25,6 +27,7 @@ const STATIC_PRODUCTS = [
     category: "Warhammer",
     salePrice: 65.0,
     quantityOnHand: 8,
+    imageUrl: "https://placehold.co/300x400?text=Warhammer+Starter",
   },
   {
     productName: "Card Sleeves Pack",
@@ -32,6 +35,7 @@ const STATIC_PRODUCTS = [
     category: "Accessories",
     salePrice: 9.99,
     quantityOnHand: 100,
+    imageUrl: "https://placehold.co/300x400?text=Card+Sleeves",
   },
 ];
 
@@ -48,6 +52,7 @@ export default function HobbyHubFrontend() {
   const categories = ["All", ...new Set(displayProducts.map(p => p.category))];
   const [sortOption, setSortOption] = useState("default");
   const [page, setPage] = useState("store");
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   const filteredProducts = displayProducts.filter(product => {
   const matchesSearch = `${product.productName} ${product.sku} ${product.category}`
