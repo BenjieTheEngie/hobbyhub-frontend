@@ -243,7 +243,35 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
 </section>
 <section className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Shop by Category</h2>
+  
+{selectedProduct && (
+  <section className="rounded-2xl bg-white p-6 shadow">
+    <button onClick={() => setSelectedProduct(null)}>
+      ← Back to Products
+    </button>
 
+    <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: "24px", marginTop: "20px" }}>
+      <img
+        src={selectedProduct.imageUrl || "https://placehold.co/300x400?text=No+Image"}
+        alt={selectedProduct.productName}
+        style={{
+          width: "100%",
+          borderRadius: "12px"
+        }}
+      />
+
+      <div>
+        <h2>{selectedProduct.productName}</h2>
+        <p>{selectedProduct.category}</p>
+        <p><strong>SKU:</strong> {selectedProduct.sku}</p>
+        <p><strong>Stock:</strong> {selectedProduct.quantityOnHand}</p>
+        <h3>${Math.max(0, selectedProduct.salePrice).toFixed(2)}</h3>
+
+        <button>Add to Cart</button>
+      </div>
+    </div>
+  </section>
+)}
   <div
     style={{
       display: "grid",
@@ -320,6 +348,7 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
 {sortedProducts.map((product, index) => (
 <div
   key={index}
+  onClick={() => setSelectedProduct(product)}
   style={{
     background: "white",
     padding: "15px",
