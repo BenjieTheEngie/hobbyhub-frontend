@@ -23,7 +23,8 @@ const filteredProducts = products.filter(product => {
     .includes(searchTerm.toLowerCase());
 
   const matchesCategory =
-    selectedCategory === "All" || product.category === selectedCategory;
+  selectedCategory === "All" ||
+  product.category?.toLowerCase().includes(selectedCategory.toLowerCase());
 
   return matchesSearch && matchesCategory;
 });
@@ -214,7 +215,7 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
       marginTop: "16px"
     }}
   >
-    {["Magic: The Gathering", "Pokémon", "Warhammer", "Accessories"].map((category) => (
+    {["All","Magic: The Gathering", "Pokémon", "Warhammer", "Accessories"].map((category) => (
       <div
         key={category}
         onClick={() => setSelectedCategory(category)}
