@@ -53,6 +53,7 @@ export default function HobbyHubFrontend() {
   const [sortOption, setSortOption] = useState("default");
   const [page, setPage] = useState("store");
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [cart, setCart] = useState([]);
 
   const filteredProducts = displayProducts.filter(product => {
   const matchesSearch = `${product.productName} ${product.sku} ${product.category}`
@@ -81,6 +82,23 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
 
   return 0; // default (no sorting)
 });
+function addToCart(product) {
+  setCart((currentCart) => {
+    const existingItem = currentCart.find((item) => item.sku === product.sku);
+
+    if (existingItem) {
+      return currentCart.map((item) =>
+        item.sku === product.sku
+          ? { ...item, cartQuantity: item.cartQuantity + 1 }
+          : item
+      );
+    }
+
+    return [...currentCart, { ...product, cartQuantity: 1 }];
+  });
+
+  setMessage(`${product.productName} added to cart.`);
+}
 
   const [productForm, setProductForm] = useState({
     productName: "Magic Booster Pack",
@@ -207,6 +225,10 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
 <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
   <button onClick={() => setPage("store")}>Storefront</button>
   <button onClick={() => setPage("admin")}>Admin Dashboard</button>
+
+   <button onClick={() => setPage("cart")}>
+    Cart ({cart.reduce((total, item) => total + item.cartQuantity, 0)})
+  </button>
 </div>
 
 {page === "store" && (
@@ -286,7 +308,9 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
         <p><strong>Stock:</strong> {selectedProduct.quantityOnHand}</p>
         <h3>${Math.max(0, selectedProduct.salePrice).toFixed(2)}</h3>
 
-        <button>Add to Cart</button>
+        <button onClick={() => addToCart(selectedProduct)}>
+         Add to Cart
+        </button>
       </div>
 
     </div>
@@ -482,7 +506,91 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
      </section>
       </>
     )}
+{page === "cart" && (
+  <>
+    <section className="rounded-2xl bg-white p-6 shadow">
+      <h2 className="text-xl font-semibold">Shopping Cart</h2>
 
+      {cart.length === 0 ? (
+        <p>Your cart is empty.</p>
+      ) : (
+        <>
+          {cart.map((item) => (
+            <div
+              key={item.sku}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                borderBottom: "1px solid #ddd",
+                padding: "12px 0"
+              }}
+            >
+              <div>
+                <strong>{item.productName}</strong>
+                <p style={{ fontSize: "12px", color: "#555" }}>
+                  {item.category}
+                </p>
+                <p>
+                  ${Math.max(0, item.salePrice).toFixed(2)} × {item.cartQuantity}
+                </p>
+              </div>
+
+              {/* Remove button */}
+              <button
+                onClick={() =>
+                  setCart((currentCart) =>
+                    currentCart.filter((i) => i.sku !== item.sku)
+                  )
+                }
+                style={{
+                  background: "#ef4444",
+                  color: "white",
+                  border: "none",
+                  padding: "6px 10px",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+
+          {/* Total */}
+          <h3 style={{ marginTop: "20px" }}>
+            Total: $
+            {cart
+              .reduce(
+                (total, item) =>
+                  total + Math.max(0, item.salePrice) * item.cartQuantity,
+                0
+              )
+              .toFixed(2)}
+          </h3>
+
+          {/* Checkout */}
+          <button
+            onClick={() => {
+              setCart([]);
+              setMessage("Mock purchase complete.");
+            }}
+            style={{
+              marginTop: "12px",
+              background: "#16a34a",
+              color: "white",
+              padding: "10px 16px",
+              borderRadius: "8px",
+              cursor: "pointer"
+            }}
+          >
+            Complete Purchase
+          </button>
+        </>
+      )}
+    </section>
+  </>
+)}
       </div>
     </main>
   );
