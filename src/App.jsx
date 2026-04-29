@@ -228,12 +228,19 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
     Discover Magic, Pokémon, Warhammer, and more — all in one place.
   </p>
 
-  <button
+<button
   onClick={() => {
+    setPage("store");
     setSelectedProduct(null);
-    document.getElementById("products-section")?.scrollIntoView({
-      behavior: "smooth"
-    });
+    setSelectedCategory("All");
+    setSearchTerm("");
+
+    setTimeout(() => {
+      document.getElementById("products-section")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
   }}
   style={{
     background: "white",
@@ -305,7 +312,9 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
     ))}
   </div>
 </section>
-<section className="rounded-2xl bg-white p-6 shadow">
+<section
+  id="products-section"
+  className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Products</h2>
   <select
   value={selectedCategory}
