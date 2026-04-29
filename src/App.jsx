@@ -532,7 +532,35 @@ function addToCart(product) {
                   {item.category}
                 </p>
                 <p>
-                  ${Math.max(0, item.salePrice).toFixed(2)} × {item.cartQuantity}
+                  <button
+  onClick={() =>
+    setCart((currentCart) =>
+      currentCart.map((i) =>
+        i.sku === item.sku
+          ? { ...i, cartQuantity: Math.max(1, i.cartQuantity - 1) }
+          : i
+      )
+    )
+  }
+>
+  -
+</button>
+
+<span style={{ margin: "0 10px" }}>{item.cartQuantity}</span>
+
+<button
+  onClick={() =>
+    setCart((currentCart) =>
+      currentCart.map((i) =>
+        i.sku === item.sku
+          ? { ...i, cartQuantity: i.cartQuantity + 1 }
+          : i
+      )
+    )
+  }
+>
+  +
+</button>
                 </p>
               </div>
 
