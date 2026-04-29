@@ -264,15 +264,21 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
     </button>
 
     <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: "24px", marginTop: "20px" }}>
+
+      {/* IMAGE */}
       <img
         src={selectedProduct.imageUrl || "https://placehold.co/300x400?text=No+Image"}
         alt={selectedProduct.productName}
         style={{
           width: "100%",
-          borderRadius: "12px"
+          height: "180px",
+          objectFit: "cover",
+          borderRadius: "10px",
+          marginBottom: "12px"
         }}
       />
 
+      {/* DETAILS */}
       <div>
         <h2>{selectedProduct.productName}</h2>
         <p>{selectedProduct.category}</p>
@@ -282,6 +288,7 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
 
         <button>Add to Cart</button>
       </div>
+
     </div>
   </section>
 )}
