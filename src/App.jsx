@@ -229,17 +229,23 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
   </p>
 
   <button
-    style={{
-      background: "white",
-      color: "#2563eb",
-      padding: "10px 16px",
-      borderRadius: "8px",
-      fontWeight: "600",
-      cursor: "pointer"
-    }}
-  >
-    Browse Products
-  </button>
+  onClick={() => {
+    setSelectedProduct(null);
+    document.getElementById("products-section")?.scrollIntoView({
+      behavior: "smooth"
+    });
+  }}
+  style={{
+    background: "white",
+    color: "#2563eb",
+    padding: "10px 16px",
+    borderRadius: "8px",
+    fontWeight: "600",
+    cursor: "pointer"
+  }}
+>
+  Browse Products
+</button>
 </section>
 <section className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Shop by Category</h2>
