@@ -308,17 +308,6 @@ function addToCart(product) {
         <p>{selectedProduct.category}</p>
         <p><strong>SKU:</strong> {selectedProduct.sku}</p>
         <p><strong>Stock:</strong> {selectedProduct.quantityOnHand}</p>
-        <img
-  src={product.imageUrl || "https://placehold.co/300x400?text=No+Image"}
-  alt={product.productName}
-  style={{
-    width: "100%",
-    height: "180px",
-    objectFit: "cover",
-    borderRadius: "10px",
-    marginBottom: "12px"
-  }}
-/>
         <h3>${Math.max(0, selectedProduct.salePrice).toFixed(2)}</h3>
 
         <button onClick={() => addToCart(selectedProduct)}>
