@@ -211,14 +211,16 @@ function addToCart(product) {
     </div>
 
     <input
-      placeholder="Search Magic, Pokémon, Warhammer..."
-      style={{
-        padding: "12px",
-        width: "45%",
-        borderRadius: "10px",
-        border: "1px solid #ccc"
-      }}
-    />
+  placeholder="Search Magic, Pokémon, Warhammer..."
+  value={searchTerm}
+  onChange={(e) => setSearchTerm(e.target.value)}
+  style={{
+    padding: "12px",
+    width: "45%",
+    borderRadius: "10px",
+    border: "1px solid #ccc"
+  }}
+/>
   </div>
 </header>
 
