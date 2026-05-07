@@ -278,9 +278,6 @@ function addToCart(product) {
   Browse Products
 </button>
 </section>
-<section className="rounded-2xl bg-white p-6 shadow">
-  <h2 className="text-xl font-semibold">Shop by Category</h2>
-  
 {selectedProduct && (
   <section className="rounded-2xl bg-white p-6 shadow">
     <button onClick={() => setSelectedProduct(null)}>
@@ -318,6 +315,9 @@ function addToCart(product) {
     </div>
   </section>
 )}
+<section className="rounded-2xl bg-white p-6 shadow">
+  <h2 className="text-xl font-semibold">Shop by Category</h2>
+  
   <div
     style={{
       display: "grid",
