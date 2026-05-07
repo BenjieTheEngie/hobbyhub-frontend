@@ -521,6 +521,56 @@ function updateStock(sku, newQuantity) {
           </div>
         </section>
 
+<section className="rounded-2xl bg-white p-6 shadow">
+  <h2 className="text-xl font-semibold">Inventory Management</h2>
+
+  {displayProducts.map((product) => (
+    <div
+      key={product.sku}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "2fr 1fr 1fr 1fr",
+        gap: "12px",
+        alignItems: "center",
+        borderBottom: "1px solid #ddd",
+        padding: "12px 0"
+      }}
+    >
+      <div>
+        <strong>{product.productName}</strong>
+        <p style={{ fontSize: "12px", color: "#555" }}>{product.sku}</p>
+      </div>
+
+      <p>{product.category}</p>
+
+      <input
+        type="number"
+        value={product.quantityOnHand}
+        onChange={(e) => updateStock(product.sku, e.target.value)}
+        style={{
+          padding: "6px",
+          border: "1px solid #ccc",
+          borderRadius: "6px"
+        }}
+      />
+
+      <button
+        onClick={() => removeProduct(product.sku)}
+        style={{
+          background: "#ef4444",
+          color: "white",
+          border: "none",
+          padding: "8px",
+          borderRadius: "6px",
+          cursor: "pointer"
+        }}
+      >
+        Remove
+      </button>
+    </div>
+  ))}
+</section>
+
         <section className="rounded-2xl bg-white p-6 shadow">
           <h2 className="text-xl font-semibold">Create Product</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
