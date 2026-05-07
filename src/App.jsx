@@ -104,6 +104,9 @@ function addToCart(product) {
 
     return [...currentCart, { ...product, cartQuantity: 1 }];
   });
+
+  setMessage(`${product.productName} added to cart.`);
+}
 function removeProduct(sku) {
   setProducts((currentProducts) =>
     currentProducts.filter((product) => product.sku !== sku)
@@ -111,9 +114,6 @@ function removeProduct(sku) {
 
   setMessage("Product removed from admin catalogue.");
 }
-  setMessage(`${product.productName} added to cart.`);
-}
-
   const [productForm, setProductForm] = useState({
     productName: "Magic Booster Pack",
     sku: "MTG-001",
