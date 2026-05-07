@@ -62,6 +62,7 @@ export default function HobbyHubFrontend() {
   const [page, setPage] = useState("store");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [cart, setCart] = useState([]);
+  const [removedSkus, setRemovedSkus] = useState([]);
 
   const filteredProducts = displayProducts.filter(product => {
   const matchesSearch = `${product.productName} ${product.sku} ${product.category}`
@@ -108,11 +109,13 @@ function addToCart(product) {
   setMessage(`${product.productName} added to cart.`);
 }
 function removeProduct(sku) {
+  setRemovedSkus((current) => [...current, sku]);
+
   setProducts((currentProducts) =>
     currentProducts.filter((product) => product.sku !== sku)
   );
 
-  setMessage("Product removed from admin catalogue.");
+  setMessage("Product removed from catalogue.");
 }
 
 function updateStock(sku, newQuantity) {
@@ -704,11 +707,6 @@ function updateStock(sku, newQuantity) {
     </main>
   );
 }
-
-
-
-
-
 
 function Metric({ label, value }) {
   return (
