@@ -114,6 +114,18 @@ function removeProduct(sku) {
 
   setMessage("Product removed from admin catalogue.");
 }
+
+function updateStock(sku, newQuantity) {
+  setProducts((currentProducts) =>
+    currentProducts.map((product) =>
+      product.sku === sku
+        ? { ...product, quantityOnHand: Math.max(0, Number(newQuantity)) }
+        : product
+    )
+  );
+
+  setMessage("Stock updated.");
+}
   const [productForm, setProductForm] = useState({
     productName: "Magic Booster Pack",
     sku: "MTG-001",
@@ -449,6 +461,9 @@ function removeProduct(sku) {
     <p style={{ fontSize: "12px", color: "#888" }}>
       SKU: {product.sku}
     </p>
+    <p style={{ fontSize: "12px", color: "#888" }}>
+  Stock: {product.quantityOnHand}
+</p>
   </div>
 ))}
 </div>
