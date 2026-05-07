@@ -104,7 +104,13 @@ function addToCart(product) {
 
     return [...currentCart, { ...product, cartQuantity: 1 }];
   });
+function removeProduct(sku) {
+  setProducts((currentProducts) =>
+    currentProducts.filter((product) => product.sku !== sku)
+  );
 
+  setMessage("Product removed from admin catalogue.");
+}
   setMessage(`${product.productName} added to cart.`);
 }
 
