@@ -48,7 +48,7 @@ export default function HobbyHubFrontend() {
   const [message, setMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const displayProducts = products.length > 0 ? products : STATIC_PRODUCTS;
+  const displayProducts = STATIC_PRODUCTS;
   const categories = ["All", ...new Set(displayProducts.map(p => p.category))];
   const [sortOption, setSortOption] = useState("default");
   const [page, setPage] = useState("store");
