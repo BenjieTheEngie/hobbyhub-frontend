@@ -68,7 +68,6 @@ const categories = ["All", ...new Set(displayProducts.map(p => p.category))];
   const [page, setPage] = useState("store");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [cart, setCart] = useState([]);
-  const 
 
   const filteredProducts = displayProducts.filter(product => {
   const matchesSearch = `${product.productName} ${product.sku} ${product.category}`
