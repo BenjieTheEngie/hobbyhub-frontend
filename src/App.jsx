@@ -49,12 +49,16 @@ export default function HobbyHubFrontend() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const displayProducts = [
-  ...STATIC_PRODUCTS,
+   ...STATIC_PRODUCTS.filter(
+     (p) => !removedSkus.includes(p.sku)
+    ),
+
   ...products.filter(
     (p) =>
       !STATIC_PRODUCTS.some(
         (staticProduct) => staticProduct.sku === p.sku
-      )
+      ) &&
+      !removedSkus.includes(p.sku)
   )
 ];
   const categories = ["All", ...new Set(displayProducts.map(p => p.category))];
