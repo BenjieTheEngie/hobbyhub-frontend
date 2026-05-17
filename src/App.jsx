@@ -48,10 +48,11 @@ export default function HobbyHubFrontend() {
   const [message, setMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const displayProducts = [
-   ...STATIC_PRODUCTS.filter(
-     (p) => !removedSkus.includes(p.sku)
-    ),
+const [removedSkus, setRemovedSkus] = useState([]);
+const displayProducts = [
+  ...STATIC_PRODUCTS.filter(
+    (p) => !removedSkus.includes(p.sku)
+  ),
 
   ...products.filter(
     (p) =>
@@ -61,7 +62,8 @@ export default function HobbyHubFrontend() {
       !removedSkus.includes(p.sku)
   )
 ];
-  const categories = ["All", ...new Set(displayProducts.map(p => p.category))];
+
+const categories = ["All", ...new Set(displayProducts.map(p => p.category))];
   const [sortOption, setSortOption] = useState("default");
   const [page, setPage] = useState("store");
   const [selectedProduct, setSelectedProduct] = useState(null);
