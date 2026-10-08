@@ -1,5 +1,7 @@
 import React, {useEffect, useState} from "react";
 import IntakePanel from "./components/IntakePanel.jsx";
+import {SiteHeader,Storefront,ShoppingCart} from "./components/Storefront.jsx";
+import {publishedCatalog,safeSavedCart,reconcileCart,setCartQuantity} from "./lib/shop.js";
 import {apiProduct,validProduct,uploadImage} from "./lib/intake.js";
 import {archiveConfirmed, inventoryForView, isArchived, normalizeInventoryResponse} from "./lib/inventoryStatus.js";
 
@@ -8,7 +10,6 @@ const INVENTORY_API_BASE_URL = String(import.meta.env.VITE_INVENTORY_API_BASE_UR
 const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
 const COGNITO_REGION = "us-east-2";
 
-const STATIC_PRODUCTS = [];
 
 export default function HobbyHubFrontend() {
   const [email, setEmail] = useState("");
@@ -21,6 +22,7 @@ export default function HobbyHubFrontend() {
     loadDashboard();
   },[token]);
   const [publicStatus,setPublicStatus] = useState("coming-soon");
+  const [publicProducts,setPublicProducts] = useState([]);
   const [editingSku,setEditingSku] = useState(null),[stockDrafts,setStockDrafts] = useState({}),[imageBusy,setImageBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [busySku, setBusySku] = useState("");
@@ -29,70 +31,48 @@ export default function HobbyHubFrontend() {
     const url=String(import.meta.env.VITE_PUBLIC_CATALOG_URL||"").trim();
     if(!/^https:\/\//.test(url)){setPublicStatus("coming-soon");return;}
     const controller=new AbortController();
-    fetch(url,{signal:controller.signal}).then(async r=>{if(!r.ok)throw Error("Catalog not ready");return r.json();})
-      .then(data=>{const list=Array.isArray(data)?data:Array.isArray(data.items)?data.items:[];setProducts(list.filter(p=>p?.published===true&&p?.isactive!==false).map(p=>({sku:String(p.sku||""),productName:String(p.productName||""),category:String(p.category||"Accessories"),salePrice:Number(p.salePrice)||0,quantityOnHand:Math.max(0,Number(p.quantityOnHand)||0),imageUrl:String(p.imageUrl||""),setCode:String(p.setCode||""),collectorNumber:String(p.collectorNumber||""),published:true,isactive:true})));setPublicStatus("ready");})
-      .catch(e=>{if(e.name!=="AbortError")setPublicStatus("coming-soon");});
+    fetch(url,{signal:controller.signal}).then(async response=>{
+      if(!response.ok)throw Error("Catalog unavailable");
+      return response.json();
+    }).then(data=>{
+      const list=publishedCatalog(data);
+      setPublicProducts(list);
+      setPublicStatus("ready");
+    }).catch(error=>{if(error.name!=="AbortError")setPublicStatus("coming-soon");});
     return ()=>controller.abort();
   },[]);
   const [dashboard, setDashboard] = useState(null);
   const [products, setProducts] = useState([]);
   const [message, setMessage] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [removedSkus, setRemovedSkus] = useState([]);
-  const displayProducts = products.filter(p=>p.published===true && p.isactive!==false && !removedSkus.includes(p.sku));
-
-const categories = ["All", ...new Set(displayProducts.map(p => p.category))];
-  const [sortOption, setSortOption] = useState("default");
   const [page, setPage] = useState("store");
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [cart, setCart] = useState([]);
-
-  const filteredProducts = displayProducts.filter(product => {
-  const matchesSearch = `${product.productName} ${product.sku} ${product.category}`
-    .toLowerCase()
-    .includes(searchTerm.toLowerCase());
-
-  const matchesCategory =
-  selectedCategory === "All" ||
-  product.category?.toLowerCase().includes(selectedCategory.toLowerCase());
-
-  return matchesSearch && matchesCategory;
-});
-
-const sortedProducts = [...filteredProducts].sort((a, b) => {
-  if (sortOption === "price-low") {
-    return a.salePrice - b.salePrice;
-  }
-
-  if (sortOption === "price-high") {
-    return b.salePrice - a.salePrice;
-  }
-
-  if (sortOption === "name") {
-    return a.productName.localeCompare(b.productName);
-  }
-
-  return 0; // default (no sorting)
-});
-function addToCart(product) {
-  if(!product.quantityOnHand){setMessage("Out of stock.");return;}
-  setCart((currentCart) => {
-    const existingItem = currentCart.find((item) => item.sku === product.sku);
-
-    if (existingItem) {
-      return currentCart.map((item) =>
-        item.sku === product.sku
-          ? { ...item, cartQuantity: Math.min(product.quantityOnHand,item.cartQuantity+1) }
-          : item
-      );
-    }
-
-    return [...currentCart, { ...product, cartQuantity: 1 }];
+  const [cart, setCart] = useState(()=>{
+    try {return safeSavedCart(window.localStorage.getItem("hobbyhub-cart-v2"));}
+    catch {return [];}
   });
-
-  setMessage(`${product.productName} added to cart.`);
-}
+  const [shopNotice,setShopNotice] = useState("");
+  useEffect(()=>{
+    try {window.localStorage.setItem("hobbyhub-cart-v2",JSON.stringify(cart.map(item=>({sku:item.sku,cartQuantity:item.cartQuantity}))));}catch {}
+  },[cart]);
+  useEffect(()=>{
+    if(publicStatus==="ready")setCart(current=>reconcileCart(current,publicProducts));
+  },[publicStatus,publicProducts]);
+  function addToCart(product) {
+    if(!product?.quantityOnHand){setShopNotice("That item is currently out of stock.");return;}
+    setCart(current=>{
+      const match=current.find(item=>item.sku===product.sku);
+      if(match)return current.map(item=>item.sku===product.sku?{
+        ...product,cartQuantity:Math.min(99,product.quantityOnHand,item.cartQuantity+1)
+      }:item);
+      return [...current,{...product,cartQuantity:1}];
+    });
+    setShopNotice(product.productName+" added to your cart. Checkout is not yet open.");
+  }
+  function changeCartQuantity(sku,quantity){
+    setCart(current=>setCartQuantity(current,sku,quantity));
+  }
+  function removeCartItem(sku){
+    setCart(current=>current.filter(item=>item.sku!==sku));
+  }
 async function removeProduct(sku) {
   if (!token) { setMessage("Sign in to manage inventory."); return; }
   if (!window.confirm("Remove SKU " + sku + " from active inventory? The updated AWS inventory API archives records instead of deleting their history.")) return;
@@ -112,7 +92,6 @@ async function removeProduct(sku) {
       setProducts(refreshed);
     }
     setCart(current => current.filter(item => item.sku !== sku));
-    setSelectedProduct(current => current?.sku === sku ? null : current);
     if (editingSku === sku) setEditingSku(null);
     const notice = "SKU " + sku + " was removed from active inventory in AWS. Use View archived to restore a soft-archived item.";
     setInventoryNotice(notice);
@@ -275,251 +254,9 @@ async function updateStock(sku,quantity) {
   return (
     <main className="min-h-screen bg-slate-100 p-6 text-slate-900">
       <div className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-2xl bg-white p-6 shadow">
-  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "20px" }}>
-    <div>
-      <h1 className="text-3xl font-bold">Hobby Hub</h1>
-      <p className="mt-2 text-slate-600">
-        Shop cards, tabletop games, and hobby products while managing inventory in one place.
-      </p>
-    </div>
-
-    <input
-  placeholder="Search Magic, Pokémon, Warhammer..."
-  value={searchTerm}
-  onChange={(e) => setSearchTerm(e.target.value)}
-  style={{
-    padding: "12px",
-    width: "45%",
-    borderRadius: "10px",
-    border: "1px solid #ccc"
-  }}
-/>
-  </div>
-</header>
-
-<div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-  <button onClick={() => setPage("store")}>Storefront</button>
-  <button onClick={() => setPage("admin")}>Admin Dashboard</button>
-
-   <button onClick={() => setPage("cart")}>
-    Cart ({cart.reduce((total, item) => total + item.cartQuantity, 0)})
-  </button>
-</div>
-
-{page === "store" && (
-  <>
-  <section
-  style={{
-    background: "linear-gradient(135deg, #2563eb, #1e40af)",
-    color: "white",
-    padding: "32px",
-    borderRadius: "16px",
-    marginBottom: "24px"
-  }}
->
-  <h2 style={{ fontSize: "28px", fontWeight: "bold", marginBottom: "10px" }}>
-    Shop the Latest Releases
-  </h2>
-
-  <p style={{ marginBottom: "16px", color: "#e2e8f0" }}>
-    Discover Magic, Pokémon, Warhammer, and more — all in one place.
-  </p>
-
-<button
-  onClick={() => {
-    setPage("store");
-    setSelectedProduct(null);
-    setSelectedCategory("All");
-    setSearchTerm("");
-
-    setTimeout(() => {
-      document.getElementById("products-section")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 100);
-  }}
-  style={{
-    background: "white",
-    color: "#2563eb",
-    padding: "10px 16px",
-    borderRadius: "8px",
-    fontWeight: "600",
-    cursor: "pointer"
-  }}
->
-  Browse Products
-</button>
-</section>
-{selectedProduct && (
-  <section className="rounded-2xl bg-white p-6 shadow">
-    <button onClick={() => setSelectedProduct(null)}>
-      ← Back to Products
-    </button>
-
-    <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: "24px", marginTop: "20px" }}>
-
-      {/* IMAGE */}
-      <img
-        src={selectedProduct.imageUrl || "https://placehold.co/300x400?text=No+Image"}
-        alt={selectedProduct.productName}
-        style={{
-          width: "100%",
-          height: "180px",
-          objectFit: "cover",
-          borderRadius: "10px",
-          marginBottom: "12px"
-        }}
-      />
-
-      {/* DETAILS */}
-      <div>
-        <h2>{selectedProduct.productName}</h2>
-        <p>{selectedProduct.category}</p>
-        <p><strong>SKU:</strong> {selectedProduct.sku}</p>
-        <p><strong>Stock:</strong> {selectedProduct.quantityOnHand}</p>
-        <h3>${Math.max(0, selectedProduct.salePrice).toFixed(2)}</h3>
-
-        <button onClick={() => addToCart(selectedProduct)}>
-         Add to Cart
-        </button>
-      </div>
-
-    </div>
-  </section>
-)}
-<section className="rounded-2xl bg-white p-6 shadow">
-  <h2 className="text-xl font-semibold">Shop by Category</h2>
-  
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-      gap: "16px",
-      marginTop: "16px"
-    }}
-  >
-    {["All","Magic: The Gathering", "Pokémon", "Yu-Gi-Oh!", "Warhammer", "Video Games", "Accessories"].map((category) => (
-      <div
-        key={category}
-        onClick={() => setSelectedCategory(category)}
-        style={{
-          padding: "20px",
-          borderRadius: "12px",
-          background: "#f8fafc",
-          border: "1px solid #e5e7eb",
-          fontWeight: "bold",
-          textAlign: "center",
-          cursor: "pointer"
-        }}
-      >
-        {category}
-      </div>
-    ))}
-  </div>
-</section>
-<section
-  id="products-section"
-  className="rounded-2xl bg-white p-6 shadow">
-  <h2 className="text-xl font-semibold">Products</h2>
-  <select
-  value={selectedCategory}
-  onChange={(e) => setSelectedCategory(e.target.value)}
-  style={{
-    marginBottom: "16px",
-    padding: "8px 12px",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    fontSize: "14px",
-    background: "white",
-    cursor: "pointer"
-  }}
->
-  {categories.map((category) => (
-    <option key={category} value={category}>
-      {category}
-    </option>
-  ))}
-</select>
-<select
-  value={sortOption}
-  onChange={(e) => setSortOption(e.target.value)}
-  style={{
-    marginLeft: "10px",
-    marginBottom: "16px",
-    padding: "8px 12px",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    fontSize: "14px",
-    background: "white",
-    cursor: "pointer"
-  }}
->
-  <option value="default">Sort: Default</option>
-  <option value="price-low">Price: Low to High</option>
-  <option value="price-high">Price: High to Low</option>
-  <option value="name">Name: A to Z</option>
-</select>
-  {publicStatus==="coming-soon" && products.length===0 && <div className="coming-soon"><h3>Fresh finds are on their way</h3><p>We’re preparing our live collection of trading cards, retro games and tabletop favorites. Check back for new arrivals.</p></div>}
-  <div style={{
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-  gap: "20px",
-  marginTop: "20px"
-}}>
-{sortedProducts.map((product, index) => (
-<div
-  key={index}
-  onClick={() => setSelectedProduct(product)}
-  style={{
-    background: "white",
-    padding: "15px",
-    borderRadius: "12px",
-    boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-    transition: "transform 0.2s ease, box-shadow 0.2s ease",
-    cursor: "pointer"
-   }}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.transform = "scale(1.03)";
-    e.currentTarget.style.boxShadow = "0 8px 20px rgba(0,0,0,0.15)";
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.transform = "scale(1)";
-    e.currentTarget.style.boxShadow = "0 4px 10px rgba(0,0,0,0.1)";
-  }}
->
-    <h3 style={{ marginBottom: "6px", fontWeight: "bold" }}>
-      {product.productName}
-    </h3>
-
-    <p style={{ color: "#555" }}>
-      {product.category}
-    </p>
-
-    <p
-      style={{
-        fontWeight: "bold",
-        marginTop: "10px",
-        fontSize: "18px"
-      }}
-    >
-      ${Math.max(0, product.salePrice).toFixed(2)}
-    </p>
-
-    <p style={{ fontSize: "12px", color: "#888" }}>
-      SKU: {product.sku}
-    </p>
-    <p style={{ fontSize: "12px", color: "#888" }}>
-  Stock: {product.quantityOnHand}
-</p>
-  </div>
-))}
-</div>
-          </section>
-  </>
-)}
-
+        <SiteHeader page={page} onNavigate={setPage} cartCount={cart.reduce((sum,item)=>sum+item.cartQuantity,0)} />
+        {page === "store" && <Storefront products={publicProducts} status={publicStatus} notice={shopNotice} onAddToCart={addToCart} onViewCart={()=>setPage("cart")}/>}
+        
 {page === "admin" && (
   <>
       <h2 style={{ marginTop: "40px" }}>Admin Tools</h2>
@@ -650,7 +387,7 @@ async function updateStock(sku,quantity) {
   ))}
 </section>
 
-{token && <IntakePanel token={token} products={products} onFill={(data)=>{setProductForm(p=>({...p,...data}));setMessage("Card information copied. Verify the item before saving.");}} onUpdated={loadProducts}/>}
+{token && <IntakePanel token={token} products={products} onFill={(data)=>{setProductForm(p=>({...p,...data}));setMessage("Card information copied. Verify its printing, condition, price and SKU before saving.");}} onUpdated={loadProducts}/>}
         <section className="rounded-2xl bg-white p-6 shadow" id="product-editor">
           <h2 className="text-xl font-semibold">{editingSku?"Edit inventory item":"Add inventory product"}</h2>
           {editingSku&&<button onClick={()=>{setEditingSku(null);setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});}}>Cancel edit / New product</button>}
@@ -677,118 +414,7 @@ async function updateStock(sku,quantity) {
       </>}
       </>
     )}
-{page === "cart" && (
-  <>
-    <section className="rounded-2xl bg-white p-6 shadow">
-      <h2 className="text-xl font-semibold">Shopping Cart</h2>
-
-      {cart.length === 0 ? (
-        <p>Your cart is empty.</p>
-      ) : (
-        <>
-          {cart.map((item) => (
-            <div
-              key={item.sku}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                borderBottom: "1px solid #ddd",
-                padding: "12px 0"
-              }}
-            >
-              <div>
-                <strong>{item.productName}</strong>
-                <p style={{ fontSize: "12px", color: "#555" }}>
-                  {item.category}
-                </p>
-                <p>
-                  <button
-  onClick={() =>
-    setCart((currentCart) =>
-      currentCart.map((i) =>
-        i.sku === item.sku
-          ? { ...i, cartQuantity: Math.max(1, i.cartQuantity - 1) }
-          : i
-      )
-    )
-  }
->
-  -
-</button>
-
-<span style={{ margin: "0 10px" }}>{item.cartQuantity}</span>
-
-<button
-  onClick={() =>
-    setCart((currentCart) =>
-      currentCart.map((i) =>
-        i.sku === item.sku
-          ? { ...i, cartQuantity: Math.min(item.quantityOnHand,i.cartQuantity + 1) }
-          : i
-      )
-    )
-  }
->
-  +
-</button>
-                </p>
-              </div>
-
-              {/* Remove button */}
-              <button
-                onClick={() =>
-                  setCart((currentCart) =>
-                    currentCart.filter((i) => i.sku !== item.sku)
-                  )
-                }
-                style={{
-                  background: "#ef4444",
-                  color: "white",
-                  border: "none",
-                  padding: "6px 10px",
-                  borderRadius: "6px",
-                  cursor: "pointer"
-                }}
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-
-          {/* Total */}
-          <h3 style={{ marginTop: "20px" }}>
-            Total: $
-            {cart
-              .reduce(
-                (total, item) =>
-                  total + Math.max(0, item.salePrice) * item.cartQuantity,
-                0
-              )
-              .toFixed(2)}
-          </h3>
-
-          {/* Checkout */}
-          <button
-            disabled
-            onClick={() => setMessage("Checkout opens after inventory and Stripe fulfillment are verified.")}
-            style={{
-              marginTop: "12px",
-              background: "#16a34a",
-              color: "white",
-              padding: "10px 16px",
-              borderRadius: "8px",
-              cursor: "pointer"
-            }}
-          >
-            Checkout launching soon
-          </button>
-          <p className="checkout-caution">No payments are accepted yet. Checkout will open after real inventory and order processing are verified.</p>
-        </>
-      )}
-    </section>
-  </>
-)}
+{page === "cart" && <ShoppingCart cart={cart} products={publicProducts} onQuantity={changeCartQuantity} onRemove={removeCartItem} onContinue={()=>setPage("store")}/>}
       </div>
     </main>
   );
