@@ -82,26 +82,18 @@ function addToCart(product) {
 
   setMessage(`${product.productName} added to cart.`);
 }
-function removeProduct(sku) {
-  setRemovedSkus((current) => [...current, sku]);
-
-  setProducts((currentProducts) =>
-    currentProducts.filter((product) => product.sku !== sku)
-  );
-
-  setMessage("Product removed from catalogue.");
+async function removeProduct(sku) {
+  if(!token){setMessage("Please sign in first.");return;}
+  if(!window.confirm("Permanently delete this SKU from AWS?"))return;
+  try{await apiProduct("/products/"+encodeURIComponent(sku),token,"DELETE");await loadProducts();setMessage("Item deleted from AWS.");}
+  catch(e){setMessage("No inventory was deleted: "+e.message);}
 }
-
-function updateStock(sku, newQuantity) {
-  setProducts((currentProducts) =>
-    currentProducts.map((product) =>
-      product.sku === sku
-        ? { ...product, quantityOnHand: Math.max(0, Number(newQuantity)) }
-        : product
-    )
-  );
-
-  setMessage("Stock updated.");
+async function updateStock(sku,quantity) {
+  if(!token){setMessage("Please sign in first.");return;}
+  const item=products.find(p=>p.sku===sku),qty=Number(quantity);
+  if(!item||!Number.isSafeInteger(qty)||qty<0){setMessage("Enter a nonnegative whole stock quantity.");return;}
+  try{await apiProduct("/products/"+encodeURIComponent(sku),token,"PUT",{...item,quantityOnHand:qty});await loadProducts();setMessage("Stock saved in AWS.");}
+  catch(e){setMessage("Stock was NOT saved: "+e.message);}
 }
   const [productForm, setProductForm] = useState({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});
 
@@ -185,9 +177,11 @@ function updateStock(sku, newQuantity) {
   }
 
   async function createProduct() {
+    let product;
+    try{product=validProduct(productForm);}catch(e){setMessage(e.message);return;}
     const data = await apiRequest("/products", {
       method: "POST",
-      body: JSON.stringify(productForm),
+      body: JSON.stringify(product),
     });
 
     if (data) {
@@ -535,7 +529,8 @@ function updateStock(sku, newQuantity) {
       <input
         type="number"
         value={product.quantityOnHand}
-        onChange={(e) => updateStock(product.sku, e.target.value)}
+        onBlur={(e) => {if(String(product.quantityOnHand)!==e.target.value)updateStock(product.sku,e.target.value);}}
+        onChange={(e)=>{e.target.dataset.changed=e.target.value;}}
         style={{
           padding: "6px",
           border: "1px solid #ccc",
@@ -560,8 +555,9 @@ function updateStock(sku, newQuantity) {
   ))}
 </section>
 
+{token && <IntakePanel token={token} products={products} onFill={(data)=>{setProductForm(p=>({...p,...data}));setMessage("Card information copied. Verify the item before saving.");}} onUpdated={loadProducts}/>}
         <section className="rounded-2xl bg-white p-6 shadow">
-          <h2 className="text-xl font-semibold">Create Product</h2>
+          <h2 className="text-xl font-semibold">Add inventory product</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <input className="rounded-lg border p-3" value={productForm.productName} onChange={(e) => updateProductField("productName", e.target.value)} placeholder="Product Name" />
             <input className="rounded-lg border p-3" value={productForm.sku} onChange={(e) => updateProductField("sku", e.target.value)} placeholder="SKU" />
@@ -569,6 +565,12 @@ function updateStock(sku, newQuantity) {
             <input className="rounded-lg border p-3" type="number" value={productForm.salePrice} onChange={(e) => updateProductField("salePrice", Number(e.target.value))} placeholder="Sale Price" />
             <input className="rounded-lg border p-3" type="number" value={productForm.quantityOnHand} onChange={(e) => updateProductField("quantityOnHand", Number(e.target.value))} placeholder="Quantity" />
             <input className="rounded-lg border p-3" type="number" value={productForm.reorderPoint} onChange={(e) => updateProductField("reorderPoint", Number(e.target.value))} placeholder="Reorder Point" />
+            <input className="rounded-lg border p-3" value={productForm.setCode} onChange={e=>updateProductField("setCode",e.target.value)} placeholder="Set code" />
+            <input className="rounded-lg border p-3" value={productForm.collectorNumber} onChange={e=>updateProductField("collectorNumber",e.target.value)} placeholder="Collector number" />
+            <input className="rounded-lg border p-3" value={productForm.condition} onChange={e=>updateProductField("condition",e.target.value)} placeholder="Condition" />
+            <input className="rounded-lg border p-3" value={productForm.barcode} onChange={e=>updateProductField("barcode",e.target.value)} placeholder="Barcode" />
+            <input className="rounded-lg border p-3" value={productForm.imageUrl} onChange={e=>updateProductField("imageUrl",e.target.value)} placeholder="HTTPS image URL" />
+            <label className="publish-label"><input type="checkbox" checked={productForm.published===true} onChange={e=>updateProductField("published",e.target.checked)}/> Publish on storefront</label>
           </div>
            <button className="mt-4 rounded-xl bg-green-600 px-4 py-2 font-semibold text-white" onClick={createProduct} disabled={!token}>
             Add Product
