@@ -13,6 +13,11 @@ export default function HobbyHubFrontend() {
   const [password, setPassword] = useState("");
   const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
   const [token, setToken] = useState("");
+  useEffect(()=>{
+    if(!token)return;
+    loadProducts();
+    loadDashboard();
+  },[token]);
   const [publicStatus,setPublicStatus] = useState("coming-soon");
   const [editingSku,setEditingSku] = useState(null),[stockDrafts,setStockDrafts] = useState({}),[imageBusy,setImageBusy] = useState(false);
   useEffect(()=>{
@@ -481,9 +486,9 @@ async function updateStock(sku,quantity) {
                 placeholder="Enter your password"
                 type="password"
               />
-              <button className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white" onClick={login}>
+              {!token?<button className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white" onClick={login}>
                 Login with Cognito
-              </button>
+              </button>:<button type="button" className="logout-button" onClick={()=>{setToken("");setPassword("");setProducts([]);setDashboard(null);setMessage("Signed out.");}}>Sign out of Admin Tools</button>}
               <button type="button" onClick={() => setShowPasswordRecovery(true)} style={{ background: "#e2e8f0", color: "#1e293b", maxWidth: "100%", whiteSpace: "normal" }}>
                 Forgot password / Reset password
               </button>
@@ -499,6 +504,7 @@ async function updateStock(sku,quantity) {
 
           <div className="rounded-2xl bg-white p-6 shadow">
             <h2 className="text-xl font-semibold">API Controls</h2>
+            <p className="muted">{token?"Signed in. Dashboard and inventory load automatically.":"Sign in to manage your actual AWS inventory."}</p>
             <div className="mt-4 flex flex-wrap gap-3">
               <button className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white" onClick={loadDashboard}>
                 Load Dashboard
