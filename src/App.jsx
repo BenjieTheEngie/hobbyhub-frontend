@@ -1,72 +1,35 @@
-import React, { useState } from "react";
+import React, {useEffect, useState} from "react";
+import IntakePanel from "./components/IntakePanel.jsx";
+import {apiProduct,validProduct} from "./lib/intake.js";
 
 const API_BASE_URL = "https://13bdy276e1.execute-api.us-east-2.amazonaws.com";
 const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
 const COGNITO_REGION = "us-east-2";
 
-const STATIC_PRODUCTS = [
-  {
-    productName: "Magic Booster Pack",
-    sku: "MTG-001",
-    category: "Magic: The Gathering",
-    salePrice: 5.99,
-    quantityOnHand: 50,
-    isactive: true,
-    imageUrl: "https://placehold.co/300x400?text=Magic+Booster",
-  },
-  {
-    productName: "Pokémon Elite Trainer Box",
-    sku: "PKM-001",
-    category: "Pokémon",
-    salePrice: 49.99,
-    quantityOnHand: 12,
-    isactive: true,
-    imageUrl: "https://placehold.co/300x400?text=Pok%C3%A9mon+ETB",
-  },
-  {
-    productName: "Warhammer Starter Set",
-    sku: "WH-001",
-    category: "Warhammer",
-    salePrice: 65.0,
-    quantityOnHand: 8,
-    isactive: true,
-    imageUrl: "https://placehold.co/300x400?text=Warhammer+Starter",
-  },
-  {
-    productName: "Card Sleeves Pack",
-    sku: "ACC-001",
-    category: "Accessories",
-    salePrice: 9.99,
-    quantityOnHand: 100,
-    isactive: true,
-    imageUrl: "https://placehold.co/300x400?text=Card+Sleeves",
-  },
-];
+const STATIC_PRODUCTS = [];
 
 export default function HobbyHubFrontend() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
   const [token, setToken] = useState("");
+  const [publicStatus,setPublicStatus] = useState("coming-soon");
+  useEffect(()=>{
+    const url=String(import.meta.env.VITE_PUBLIC_CATALOG_URL||"").trim();
+    if(!/^https:\/\//.test(url)){setPublicStatus("coming-soon");return;}
+    const controller=new AbortController();
+    fetch(url,{signal:controller.signal}).then(async r=>{if(!r.ok)throw Error("Catalog not ready");return r.json();})
+      .then(data=>{const list=Array.isArray(data)?data:Array.isArray(data.items)?data.items:[];setProducts(list.filter(p=>p?.published===true&&p?.isactive!==false).map(p=>({sku:String(p.sku||""),productName:String(p.productName||""),category:String(p.category||"Accessories"),salePrice:Number(p.salePrice)||0,quantityOnHand:Math.max(0,Number(p.quantityOnHand)||0),imageUrl:String(p.imageUrl||""),setCode:String(p.setCode||""),collectorNumber:String(p.collectorNumber||""),published:true,isactive:true})));setPublicStatus("ready");})
+      .catch(e=>{if(e.name!=="AbortError")setPublicStatus("coming-soon");});
+    return ()=>controller.abort();
+  },[]);
   const [dashboard, setDashboard] = useState(null);
   const [products, setProducts] = useState([]);
   const [message, setMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [removedSkus, setRemovedSkus] = useState([]);
-  const displayProducts = [
-  ...STATIC_PRODUCTS.filter(
-    (p) => !removedSkus.includes(p.sku)
-  ),
-
-  ...products.filter(
-    (p) =>
-      !STATIC_PRODUCTS.some(
-        (staticProduct) => staticProduct.sku === p.sku
-      ) &&
-      !removedSkus.includes(p.sku)
-  )
-];
+  const displayProducts = products.filter(p=>p.published===true && p.isactive!==false && !removedSkus.includes(p.sku));
 
 const categories = ["All", ...new Set(displayProducts.map(p => p.category))];
   const [sortOption, setSortOption] = useState("default");
@@ -102,13 +65,14 @@ const sortedProducts = [...filteredProducts].sort((a, b) => {
   return 0; // default (no sorting)
 });
 function addToCart(product) {
+  if(!product.quantityOnHand){setMessage("Out of stock.");return;}
   setCart((currentCart) => {
     const existingItem = currentCart.find((item) => item.sku === product.sku);
 
     if (existingItem) {
       return currentCart.map((item) =>
         item.sku === product.sku
-          ? { ...item, cartQuantity: item.cartQuantity + 1 }
+          ? { ...item, cartQuantity: Math.min(product.quantityOnHand,item.cartQuantity+1) }
           : item
       );
     }
@@ -139,14 +103,7 @@ function updateStock(sku, newQuantity) {
 
   setMessage("Stock updated.");
 }
-  const [productForm, setProductForm] = useState({
-    productName: "Magic Booster Pack",
-    sku: "MTG-001",
-    category: "Magic: The Gathering",
-    salePrice: 5.99,
-    quantityOnHand: 50,
-    reorderPoint: 10,
-  });
+  const [productForm, setProductForm] = useState({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});
 
   async function login() {
     setMessage("Logging in...");
@@ -433,6 +390,7 @@ function updateStock(sku, newQuantity) {
   <option value="price-high">Price: High to Low</option>
   <option value="name">Name: A to Z</option>
 </select>
+  {publicStatus==="coming-soon" && products.length===0 && <div className="coming-soon"><h3>Fresh finds are on their way</h3><p>We’re preparing our live collection of trading cards, retro games and tabletop favorites. Check back for new arrivals.</p></div>}
   <div style={{
   display: "grid",
   gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
@@ -553,8 +511,9 @@ function updateStock(sku, newQuantity) {
 
 <section className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Inventory Management</h2>
+  <p className="muted">Inventory changes must be saved in AWS. Unavailable write routes do not alter your inventory.</p>
 
-  {displayProducts.map((product) => (
+  {products.map((product) => (
     <div
       key={product.sku}
       style={{
@@ -611,7 +570,7 @@ function updateStock(sku, newQuantity) {
             <input className="rounded-lg border p-3" type="number" value={productForm.quantityOnHand} onChange={(e) => updateProductField("quantityOnHand", Number(e.target.value))} placeholder="Quantity" />
             <input className="rounded-lg border p-3" type="number" value={productForm.reorderPoint} onChange={(e) => updateProductField("reorderPoint", Number(e.target.value))} placeholder="Reorder Point" />
           </div>
-           <button className="mt-4 rounded-xl bg-green-600 px-4 py-2 font-semibold text-white" onClick={createProduct}>
+           <button className="mt-4 rounded-xl bg-green-600 px-4 py-2 font-semibold text-white" onClick={createProduct} disabled={!token}>
             Add Product
           </button>
      </section>
@@ -710,10 +669,8 @@ function updateStock(sku, newQuantity) {
 
           {/* Checkout */}
           <button
-            onClick={() => {
-              setCart([]);
-              setMessage("Mock purchase complete.");
-            }}
+            disabled
+            onClick={() => setMessage("Checkout opens after inventory and Stripe fulfillment are verified.")}
             style={{
               marginTop: "12px",
               background: "#16a34a",
@@ -723,8 +680,9 @@ function updateStock(sku, newQuantity) {
               cursor: "pointer"
             }}
           >
-            Complete Purchase
+            Checkout launching soon
           </button>
+          <p className="checkout-caution">No payments are accepted yet. Checkout will open after real inventory and order processing are verified.</p>
         </>
       )}
     </section>
