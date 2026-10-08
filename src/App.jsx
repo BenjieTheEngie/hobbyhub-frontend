@@ -46,6 +46,7 @@ const STATIC_PRODUCTS = [
 export default function HobbyHubFrontend() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
   const [token, setToken] = useState("");
   const [dashboard, setDashboard] = useState(null);
   const [products, setProducts] = useState([]);
@@ -169,7 +170,14 @@ function updateStock(sku, newQuantity) {
     const data = await response.json();
 
     if (!response.ok || data.__type) {
-      setMessage(data.message || "Login failed.");
+      const code = String(data.__type || data.code || "");
+      if (code.includes("PasswordResetRequiredException")) {
+        setShowPasswordRecovery(true);
+        setPassword("");
+        setMessage("Cognito requires a password reset. Use the form under Sign in to request a code.");
+      } else {
+        setMessage(data.message || "Login failed.");
+      }
       return;
     }
 
@@ -506,6 +514,16 @@ function updateStock(sku, newQuantity) {
               <button className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white" onClick={login}>
                 Login with Cognito
               </button>
+              <button type="button" onClick={() => setShowPasswordRecovery(true)} style={{ background: "#e2e8f0", color: "#1e293b", maxWidth: "100%", whiteSpace: "normal" }}>
+                Forgot password / Reset password
+              </button>
+              {showPasswordRecovery && (
+                <PasswordRecovery
+                  initialUsername={email}
+                  onComplete={(username) => { setEmail(username); setPassword(""); setMessage("Password reset successful. Sign in with your new password."); }}
+                  onClose={() => setShowPasswordRecovery(false)}
+                />
+              )}
             </div>
           </div>
 
@@ -722,6 +740,126 @@ function Metric({ label, value }) {
     <div className="rounded-xl border bg-slate-50 p-4">
       <p className="text-sm text-slate-500">{label}</p>
       <p className="mt-1 text-3xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+
+function PasswordRecovery({ initialUsername, onComplete, onClose }) {
+  const [username, setUsername] = useState(initialUsername || "");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [step, setStep] = useState("request");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+
+  async function cognito(action, input) {
+    const response = await fetch("https://cognito-idp." + COGNITO_REGION + ".amazonaws.com/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-amz-json-1.1",
+        "X-Amz-Target": "AWSCognitoIdentityProviderService." + action,
+      },
+      body: JSON.stringify({ ClientId: COGNITO_CLIENT_ID, ...input }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.__type) {
+      throw new Error(data.message || data.Message || "Cognito request failed. Verify your account recovery settings.");
+    }
+    return data;
+  }
+
+  async function requestCode(event) {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const data = await cognito("ForgotPassword", { Username: username.trim() });
+      const destination = data.CodeDeliveryDetails?.Destination;
+      setStep("confirm");
+      setNotice(destination
+        ? "Cognito sent a verification code to " + destination + "."
+        : "If recovery is configured for this account, check your verified email or phone for a code.");
+    } catch (err) {
+      setError(err.message || "Unable to send recovery code.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmReset(event) {
+    event.preventDefault();
+    if (busy) return;
+    setError("");
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Your new password must meet the Cognito password policy.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await cognito("ConfirmForgotPassword", {
+        Username: username.trim(),
+        ConfirmationCode: verificationCode.trim(),
+        Password: newPassword,
+      });
+      setNewPassword("");
+      setConfirmPassword("");
+      setVerificationCode("");
+      setStep("done");
+      setNotice("Password reset successful. Return to sign in with your new password.");
+      onComplete?.(username.trim());
+    } catch (err) {
+      setError(err.message || "Unable to confirm password reset.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 16, padding: 16, border: "1px solid #cbd5e1", borderRadius: 12, maxWidth: "100%", boxSizing: "border-box" }}>
+      <h3 style={{ margin: "0 0 8px" }}>Reset Cognito password</h3>
+      <p style={{ fontSize: 14, marginBottom: 12 }}>
+        Get a code at your verified recovery email or phone, then choose a new password.
+      </p>
+      {notice && <p role="status" style={{ color: "#166534", fontSize: 14 }}>{notice}</p>}
+      {error && <p role="alert" style={{ color: "#991b1b", fontSize: 14 }}>{error}</p>}
+      {step !== "done" && (
+        <form onSubmit={step === "request" ? requestCode : confirmReset} style={{ display: "grid", gap: 10, maxWidth: 430 }}>
+          <label style={{ display: "grid", gap: 4 }}>
+            Username or email
+            <input required autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} style={{ width: "100%", margin: 0, boxSizing: "border-box" }} />
+          </label>
+          {step === "confirm" && (
+            <>
+              <label style={{ display: "grid", gap: 4 }}>
+                Verification code
+                <input required autoComplete="one-time-code" inputMode="numeric" value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)} style={{ width: "100%", margin: 0, boxSizing: "border-box" }} />
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                New password
+                <input required type="password" autoComplete="new-password" minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} style={{ width: "100%", margin: 0, boxSizing: "border-box" }} />
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                Confirm new password
+                <input required type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} style={{ width: "100%", margin: 0, boxSizing: "border-box" }} />
+              </label>
+            </>
+          )}
+          <button type="submit" disabled={busy}>{busy ? "Please wait..." : step === "request" ? "Send verification code" : "Set new password"}</button>
+        </form>
+      )}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+        {step === "confirm" && <button type="button" disabled={busy} onClick={requestCode}>Resend code</button>}
+        <button type="button" disabled={busy} onClick={onClose}>{step === "done" ? "Back to sign in" : "Close"}</button>
+      </div>
     </div>
   );
 }
