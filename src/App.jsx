@@ -387,7 +387,15 @@ async function updateStock(sku,quantity) {
   ))}
 </section>
 
-{token && <IntakePanel token={token} products={products} onFill={(data)=>{setProductForm(p=>({...p,...data}));setMessage("Card information copied. Verify its printing, condition, price and SKU before saving.");}} onUpdated={loadProducts}/>}
+{token && <IntakePanel token={token} products={products} onFill={(data)=>{
+  if(data.sku){
+    setEditingSku(null);
+    setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true,...data});
+  } else {
+    setProductForm(current=>({...current,...data}));
+  }
+  setMessage("Card information copied. Review its exact printing, SKU, price and condition before saving.");
+}} onUpdated={loadProducts}/>} 
         <section className="rounded-2xl bg-white p-6 shadow" id="product-editor">
           <h2 className="text-xl font-semibold">{editingSku?"Edit inventory item":"Add inventory product"}</h2>
           {editingSku&&<button onClick={()=>{setEditingSku(null);setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});}}>Cancel edit / New product</button>}
