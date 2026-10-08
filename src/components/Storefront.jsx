@@ -86,7 +86,7 @@ export function Storefront({products=[],status='coming-soon',onAddToCart,onViewC
           <label className="hh-search-label"><span className="hh-filter-label">Search products</span><span className="hh-search-input"><span aria-hidden="true">⌕</span><input type="search" placeholder="Find a card, set, SKU or game…" value={search} onChange={e=>{setSearch(e.target.value);setSelected('');}} /></span></label>
           <label><span className="hh-filter-label">Category</span><select value={category} onChange={e=>{setCategory(e.target.value);setSelected('');}}>{SHOP_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
           <label><span className="hh-filter-label">Sort by</span><select value={sort} onChange={e=>setSort(e.target.value)}><option value="featured">Featured</option><option value="name">Name: A–Z</option><option value="price-low">Price: Low–High</option><option value="price-high">Price: High–Low</option></select></label>
-          {(search||category!=='All')&&<button type="button" className="hh-clear" onClick={()=>{setSearch('');setCategory('');setCategory('All');}}>Clear filters</button>}
+          {(search||category!=='All')&&<button type="button" className="hh-clear" onClick={()=>{setSearch('');setCategory('All');}}>Clear filters</button>}
         </div>
         {notice&&<p className="hh-shop-notice" role="status">{notice}</p>}
         {!isReady ? <div className="hh-empty" role="status">
