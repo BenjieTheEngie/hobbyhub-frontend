@@ -1,6 +1,6 @@
 /** Hobby Hub card intake utilities. Product prices and exact variants always require human review. */
 export const CATEGORIES=['Magic: The Gathering','Pokémon','Yu-Gi-Oh!','Warhammer','Video Games','Accessories'];
-const API=(import.meta.env?.VITE_API_BASE_URL||'https://13bdy276e1.execute-api.us-east-2.amazonaws.com').replace(/\/$/,'');
+const API=(import.meta.env?.VITE_INVENTORY_API_BASE_URL||import.meta.env?.VITE_API_BASE_URL||'https://13bdy276e1.execute-api.us-east-2.amazonaws.com').replace(/\/$/,'');
 const MEDIA=(import.meta.env?.VITE_MEDIA_API_BASE_URL||API).replace(/\/$/,'');
 function err(text){throw new Error(text);}
 async function parse(response){let data=await response.json().catch(()=>({}));if(!response.ok)err(data.message||data.error||'Request failed ('+response.status+').');return data;}
