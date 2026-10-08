@@ -1,0 +1,467 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Hobby Hub optional media scanning, inventory CRUD and storefront catalog add-on (requires schema review before deployment).
+Parameters:
+  ExistingProductsTable:
+    Type: String
+    Description: Existing DynamoDB product table name (must be a single string partition key named sku for CRUD).
+  CognitoUserPoolId:
+    Type: String
+    Description: Existing Cognito User Pool ID in this region.
+  CognitoClientId:
+    Type: String
+    Description: Existing public Cognito App Client ID; used as JWT audience.
+  AdminGroupName:
+    Type: String
+    Default: hobbyhub-admin
+  FrontendOrigin:
+    Type: String
+    Default: https://hobbyhub.company
+  AllowedAdminSubs:
+    Type: String
+    Default: ''
+    Description: Optional comma separated Cognito subject allowlist for initial owner access; do not use a blanket wildcard.
+  EnableInventoryWrites:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true','false']
+    Description: Safe default OFF; enable only after checking real DynamoDB key schema and staging tests.
+  EnablePaidVision:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true','false']
+    Description: Scrydex charges per recognition. Keep false unless expressly authorized.
+  ScrydexApiKey:
+    Type: String
+    Default: ''
+    NoEcho: true
+  ScrydexTeamId:
+    Type: String
+    Default: ''
+    NoEcho: true
+  StripeTestSecretArn:
+    Type: String
+    Default: ''
+    Description: Existing Secrets Manager ARN containing a Stripe sk_test secret, never pasted into this template.
+  StripeWebhookSecretArn:
+    Type: String
+    Default: ''
+    Description: Existing Secrets Manager ARN containing the whsec test webhook signing secret.
+  EnableCheckout:
+    Type: String
+    AllowedValues: ['true','false']
+    Default: 'false'
+    Description: Keep false until AWS and Stripe webhook sandbox end-to-end tests pass.
+  ShippingCents:
+    Type: String
+    Default: ''
+    Description: Approved standard domestic shipping amount in US cents; required to enable checkout.
+  EnableStripeAutomaticTax:
+    Type: String
+    AllowedValues: ['true','false']
+    Default: 'false'
+    Description: Only set true after enabling/configuring Stripe Tax in the sandbox.
+  CheckoutReturnOrigin:
+    Type: String
+    Default: 'https://hobbyhub.company'
+    Description: HTTPS Vercel origin; must match the staged frontend origin.
+Conditions:
+  HasStripeSecrets: !And
+    - !Not [!Equals [!Ref StripeTestSecretArn, '']]
+    - !Not [!Equals [!Ref StripeWebhookSecretArn, '']]
+  CheckoutEnabled: !Equals [!Ref EnableCheckout, 'true']
+Resources:
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      LifecycleConfiguration:
+        Rules:
+          - Id: RemoveUnpublishedUploads
+            Prefix: uploads/
+            Status: Enabled
+            ExpirationInDays: 7
+          - Id: AbortMultipart
+            Status: Enabled
+            AbortIncompleteMultipartUpload: {DaysAfterInitiation: 1}
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: [!Ref FrontendOrigin]
+            AllowedMethods: [POST, GET, HEAD]
+            AllowedHeaders: ['*']
+            MaxAge: 600
+  MediaOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub 'hobbyhub-media-${AWS::StackName}'
+        Description: CloudFront private access to published card art only.
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+  MediaDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: published-s3
+            DomainName: !GetAtt MediaBucket.RegionalDomainName
+            OriginPath: /products
+            S3OriginConfig: {OriginAccessIdentity: ''}
+            OriginAccessControlId: !Ref MediaOriginAccessControl
+        DefaultCacheBehavior:
+          TargetOriginId: published-s3
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          ForwardedValues:
+            QueryString: false
+            Cookies: {Forward: none}
+        ViewerCertificate: {CloudFrontDefaultCertificate: true}
+  MediaBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref MediaBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CloudFrontReadOnlyPublishedImages
+            Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource: !Sub '${MediaBucket.Arn}/products/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${MediaDistribution}'
+  AddonApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: [!Ref FrontendOrigin]
+        AllowMethods: [GET, POST, PUT, DELETE, OPTIONS]
+        AllowHeaders: [authorization, content-type]
+        MaxAge: 600
+      Auth:
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              audience: [!Ref CognitoClientId]
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
+  MediaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Runtime: nodejs22.x
+      Handler: handler.mediaHandler
+      Timeout: 25
+      MemorySize: 512
+      Environment:
+        Variables:
+          HOBBYHUB_MEDIA_BUCKET: !Ref MediaBucket
+          HOBBYHUB_MEDIA_PUBLIC_BASE_URL: !Sub 'https://${MediaDistribution.DomainName}'
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+          HOBBYHUB_ADMIN_GROUP: !Ref AdminGroupName
+          HOBBYHUB_ALLOWED_ADMIN_SUBS: !Ref AllowedAdminSubs
+          HOBBYHUB_ENABLE_PAID_VISION: !Ref EnablePaidVision
+          HOBBYHUB_SCRYDEX_API_KEY: !Ref ScrydexApiKey
+          HOBBYHUB_SCRYDEX_TEAM_ID: !Ref ScrydexTeamId
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [s3:PutObject, s3:HeadObject, s3:GetObject]
+              Resource: !Sub '${MediaBucket.Arn}/uploads/*'
+            - Effect: Allow
+              Action: [s3:PutObject]
+              Resource: !Sub '${MediaBucket.Arn}/products/*'
+            - Effect: Allow
+              Action: [rekognition:DetectText]
+              Resource: '*'
+      Events:
+        Presign:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Method: POST
+            Path: /uploads/presign
+            Auth: {Authorizer: CognitoJwt}
+        Complete:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Method: POST
+            Path: /uploads/complete
+            Auth: {Authorizer: CognitoJwt}
+        Recognize:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Method: POST
+            Path: /scan/recognize
+            Auth: {Authorizer: CognitoJwt}
+  CatalogFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Runtime: nodejs22.x
+      Handler: catalog.catalogHandler
+      Timeout: 20
+      MemorySize: 256
+      Environment:
+        Variables:
+          HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:Scan
+              Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
+      Events:
+        PublicCatalog:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Method: GET
+            Path: /catalog
+  InventoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Runtime: nodejs22.x
+      Handler: inventory.inventoryHandler
+      Timeout: 20
+      MemorySize: 256
+      Environment:
+        Variables:
+          HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
+          HOBBYHUB_PRODUCTS_PK_NAME: sku
+          HOBBYHUB_INVENTORY_WRITES_ENABLED: !Ref EnableInventoryWrites
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+          HOBBYHUB_ADMIN_GROUP: !Ref AdminGroupName
+          HOBBYHUB_ALLOWED_ADMIN_SUBS: !Ref AllowedAdminSubs
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:Scan, dynamodb:GetItem, dynamodb:PutItem, dynamodb:DeleteItem]
+              Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
+      Events:
+        List:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Method: GET
+            Path: /products
+            Auth: {Authorizer: CognitoJwt}
+        Create:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Method: POST
+            Path: /products
+            Auth: {Authorizer: CognitoJwt}
+        Update:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Method: PUT
+            Path: /products/{sku}
+            Auth: {Authorizer: CognitoJwt}
+        Remove:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Method: DELETE
+            Path: /products/{sku}
+            Auth: {Authorizer: CognitoJwt}
+  OrdersTable:
+    Condition: HasStripeSecrets
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: orderId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: orderId
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+  CheckoutFunction:
+    Condition: HasStripeSecrets
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: checkout.beginCheckoutHandler
+      Runtime: nodejs22.x
+      Timeout: 28
+      MemorySize: 512
+      Environment:
+        Variables:
+          HOBBYHUB_ORDERS_TABLE: !Ref OrdersTable
+          HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
+          HOBBYHUB_CHECKOUT_ENABLED: !Ref EnableCheckout
+          HOBBYHUB_PRODUCTS_PK_NAME: sku
+          HOBBYHUB_INVENTORY_WRITES_ENABLED: !Ref EnableInventoryWrites
+          HOBBYHUB_STRIPE_TEST_ONLY: 'true'
+          HOBBYHUB_STRIPE_SECRET_ARN: !Ref StripeTestSecretArn
+          HOBBYHUB_STRIPE_WEBHOOK_SECRET_ARN: !Ref StripeWebhookSecretArn
+          HOBBYHUB_CHECKOUT_RETURN_ORIGIN: !Ref CheckoutReturnOrigin
+          HOBBYHUB_SHIPPING_CENTS: !Ref ShippingCents
+          HOBBYHUB_ENABLE_AUTOMATIC_TAX: !Ref EnableStripeAutomaticTax
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [secretsmanager:GetSecretValue]
+              Resource: [!Ref StripeTestSecretArn, !Ref StripeWebhookSecretArn]
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:UpdateItem, dynamodb:Scan, dynamodb:TransactWriteItems]
+              Resource:
+                - !GetAtt OrdersTable.Arn
+                - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
+      Events:
+        Begin:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Method: POST
+            Path: /checkout/start
+        Status:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Method: GET
+            Path: /checkout/status
+  CheckoutWebhookFunction:
+    Condition: HasStripeSecrets
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: checkout.stripeWebhookHandler
+      Runtime: nodejs22.x
+      Timeout: 25
+      MemorySize: 512
+      Environment:
+        Variables:
+          HOBBYHUB_ORDERS_TABLE: !Ref OrdersTable
+          HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
+          HOBBYHUB_STRIPE_TEST_ONLY: 'true'
+          HOBBYHUB_STRIPE_SECRET_ARN: !Ref StripeTestSecretArn
+          HOBBYHUB_STRIPE_WEBHOOK_SECRET_ARN: !Ref StripeWebhookSecretArn
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [secretsmanager:GetSecretValue]
+              Resource: [!Ref StripeTestSecretArn, !Ref StripeWebhookSecretArn]
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:UpdateItem, dynamodb:TransactWriteItems]
+              Resource:
+                - !GetAtt OrdersTable.Arn
+                - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
+      Events:
+        SignedWebhook:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Method: POST
+            Path: /stripe/webhook
+  OrdersAdminFunction:
+    Condition: HasStripeSecrets
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: checkout.adminOrdersHandler
+      Runtime: nodejs22.x
+      Timeout: 25
+      MemorySize: 256
+      Environment:
+        Variables:
+          HOBBYHUB_ORDERS_TABLE: !Ref OrdersTable
+          HOBBYHUB_ADMIN_GROUP: !Ref AdminGroupName
+          HOBBYHUB_ALLOWED_ADMIN_SUBS: !Ref AllowedAdminSubs
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:Scan, dynamodb:UpdateItem]
+              Resource: !GetAtt OrdersTable.Arn
+      Events:
+        ListOrders:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Path: /orders
+            Method: GET
+            Auth: {Authorizer: CognitoJwt}
+        MarkShipped:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AddonApi
+            Path: /orders/{orderId}/ship
+            Method: POST
+            Auth: {Authorizer: CognitoJwt}
+  OrderReconcileFunction:
+    Condition: HasStripeSecrets
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: checkout.reconcileHandler
+      Runtime: nodejs22.x
+      Timeout: 60
+      MemorySize: 256
+      Environment:
+        Variables:
+          HOBBYHUB_ORDERS_TABLE: !Ref OrdersTable
+          HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
+          HOBBYHUB_STRIPE_TEST_ONLY: 'true'
+          HOBBYHUB_STRIPE_SECRET_ARN: !Ref StripeTestSecretArn
+          HOBBYHUB_STRIPE_WEBHOOK_SECRET_ARN: !Ref StripeWebhookSecretArn
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [secretsmanager:GetSecretValue]
+              Resource: [!Ref StripeTestSecretArn, !Ref StripeWebhookSecretArn]
+            - Effect: Allow
+              Action: [dynamodb:Scan, dynamodb:GetItem, dynamodb:UpdateItem, dynamodb:TransactWriteItems]
+              Resource:
+                - !GetAtt OrdersTable.Arn
+                - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
+      Events:
+        CheckExpiringOrders:
+          Type: Schedule
+          Properties:
+            Schedule: rate(15 minutes)
+            Enabled: !If [CheckoutEnabled, true, false]
+            Description: Reconcile expired or orphaned Stripe test checkout sessions
+Outputs:
+  AddonApiBaseUrl:
+    Description: Use as VITE_INVENTORY_API_BASE_URL and VITE_MEDIA_API_BASE_URL
+    Value: !Sub 'https://${AddonApi}.execute-api.${AWS::Region}.amazonaws.com'
+  PublicCatalogUrl:
+    Description: Use as VITE_PUBLIC_CATALOG_URL
+    Value: !Sub 'https://${AddonApi}.execute-api.${AWS::Region}.amazonaws.com/catalog'
+  PublishedImageBase:
+    Value: !Sub 'https://${MediaDistribution.DomainName}'
+  PrivateMediaBucket:
+    Value: !Ref MediaBucket
+  StripeWebhookUrl:
+    Condition: HasStripeSecrets
+    Value: !Sub 'https://${AddonApi}.execute-api.${AWS::Region}.amazonaws.com/stripe/webhook'
+  OrdersTableName:
+    Condition: HasStripeSecrets
+    Value: !Ref OrdersTable

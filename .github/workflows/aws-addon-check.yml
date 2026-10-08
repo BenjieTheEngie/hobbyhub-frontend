@@ -1,0 +1,19 @@
+name: Hobby Hub AWS offline checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          for f in backend/*.mjs; do node --check "$f"; done
+          bash -n scripts/aws-preflight.sh
+          node --test tests/*.test.mjs

@@ -1,0 +1,17 @@
+{
+  "name": "hobbyhub-media-extension",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/s3-presigned-post": "^3.0.0",
+    "@aws-sdk/client-rekognition": "^3.0.0",
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
+    "stripe": "^19.0.0",
+    "@aws-sdk/client-secrets-manager": "^3.0.0"
+  }
+}
