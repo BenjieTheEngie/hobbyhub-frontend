@@ -1,15 +1,15 @@
 /** Hobby Hub card intake utilities. Product prices and exact variants always require human review. */
 export const CATEGORIES=['Magic: The Gathering','Pokémon','Yu-Gi-Oh!','Warhammer','Video Games','Accessories'];
-const API=(import.meta.env.VITE_API_BASE_URL||'https://13bdy276e1.execute-api.us-east-2.amazonaws.com').replace(/\/$/,'');
-const MEDIA=(import.meta.env.VITE_MEDIA_API_BASE_URL||API).replace(/\/$/,'');
+const API=(import.meta.env?.VITE_API_BASE_URL||'https://13bdy276e1.execute-api.us-east-2.amazonaws.com').replace(/\/$/,'');
+const MEDIA=(import.meta.env?.VITE_MEDIA_API_BASE_URL||API).replace(/\/$/,'');
 function err(text){throw new Error(text);}
 async function parse(response){let data=await response.json().catch(()=>({}));if(!response.ok)err(data.message||data.error||'Request failed ('+response.status+').');return data;}
 export function dollars(price){const x=Number(price);return Number.isFinite(x)&&x>=0?x.toFixed(2):'0.00';}
 export function validProduct(p) {
   if(!String(p.productName||'').trim())err('Product name is required.');
   if(!/^[A-Za-z0-9][\w.:-]{1,79}$/.test(String(p.sku||'')))err('SKU must be 2–80 letters, numbers, periods, underscores, colons or hyphens.');
-  if(!Number.isFinite(Number(p.salePrice))||Number(p.salePrice)<0)err('Enter a valid price.');
-  if(!Number.isSafeInteger(Number(p.quantityOnHand))||Number(p.quantityOnHand)<0)err('Stock must be a nonnegative whole number.');
+  if(p.salePrice==null||String(p.salePrice).trim()===""||!Number.isFinite(Number(p.salePrice))||Number(p.salePrice)<0)err('Enter a valid price.');
+  if(p.quantityOnHand==null||String(p.quantityOnHand).trim()===""||!Number.isSafeInteger(Number(p.quantityOnHand))||Number(p.quantityOnHand)<0)err('Stock must be a nonnegative whole number.');
   if(p.imageUrl&&!/^https:\/\//i.test(p.imageUrl))err('Images need a secure HTTPS URL.');
   return {...p,sku:String(p.sku).trim(),productName:String(p.productName).trim(),salePrice:Number(p.salePrice),quantityOnHand:Number(p.quantityOnHand)};
 }
@@ -83,6 +83,7 @@ export async function uploadImage(file,token){
   return finished.imageUrl;
 }
 export async function scanPhoto(file,game,token){
+  if(!["image/jpeg","image/png"].includes(file.type)||!file.size||file.size>8*1024*1024)err("Use JPG or PNG under 8 MB for scanning.");
   if(file.type==='image/webp')err('Photo recognition requires JPG or PNG.');
   if(!token)err('Sign in first.');
   const headers={'Content-Type':'application/json',Authorization:'Bearer '+token};
