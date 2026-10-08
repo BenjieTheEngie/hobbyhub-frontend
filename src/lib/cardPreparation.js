@@ -1,5 +1,3 @@
-import {magicSearch} from './intake.js';
-
 const HTTPS_SCRYFALL=/^https:\/\/api\.scryfall\.com\//i;
 
 export function suggestSku(product,existing=[],finish='Nonfoil') {
