@@ -3,6 +3,7 @@ import IntakePanel from "./components/IntakePanel.jsx";
 import {apiProduct,validProduct,uploadImage} from "./lib/intake.js";
 
 const API_BASE_URL = "https://13bdy276e1.execute-api.us-east-2.amazonaws.com";
+const INVENTORY_API_BASE_URL = String(import.meta.env.VITE_INVENTORY_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || API_BASE_URL).replace(/\/$/, "");
 const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
 const COGNITO_REGION = "us-east-2";
 
@@ -147,7 +148,8 @@ async function updateStock(sku,quantity) {
       return null;
     }
 
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const baseUrl = path.startsWith("/products") ? INVENTORY_API_BASE_URL : API_BASE_URL;
+    const response = await fetch(`${baseUrl}${path}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
