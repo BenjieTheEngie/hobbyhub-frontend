@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import IntakePanel from "./components/IntakePanel.jsx";
-import {apiProduct,validProduct} from "./lib/intake.js";
+import {apiProduct,validProduct,uploadImage} from "./lib/intake.js";
 
 const API_BASE_URL = "https://13bdy276e1.execute-api.us-east-2.amazonaws.com";
 const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
@@ -14,6 +14,7 @@ export default function HobbyHubFrontend() {
   const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
   const [token, setToken] = useState("");
   const [publicStatus,setPublicStatus] = useState("coming-soon");
+  const [editingSku,setEditingSku] = useState(null),[stockDrafts,setStockDrafts] = useState({}),[imageBusy,setImageBusy] = useState(false);
   useEffect(()=>{
     const url=String(import.meta.env.VITE_PUBLIC_CATALOG_URL||"").trim();
     if(!/^https:\/\//.test(url)){setPublicStatus("coming-soon");return;}
@@ -92,8 +93,8 @@ async function updateStock(sku,quantity) {
   if(!token){setMessage("Please sign in first.");return;}
   const item=products.find(p=>p.sku===sku),qty=Number(quantity);
   if(!item||!Number.isSafeInteger(qty)||qty<0){setMessage("Enter a nonnegative whole stock quantity.");return;}
-  try{await apiProduct("/products/"+encodeURIComponent(sku),token,"PUT",{...item,quantityOnHand:qty});await loadProducts();setMessage("Stock saved in AWS.");}
-  catch(e){setMessage("Stock was NOT saved: "+e.message);}
+  try{await apiProduct("/products/"+encodeURIComponent(sku),token,"PUT",{...item,quantityOnHand:qty});await loadProducts();setStockDrafts(p=>{const next={...p};delete next[sku];return next;});setMessage("Stock saved in AWS.");}
+  catch(e){setStockDrafts(p=>{const next={...p};delete next[sku];return next;});setMessage("Stock was NOT saved: "+e.message);}
 }
   const [productForm, setProductForm] = useState({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});
 
@@ -177,20 +178,31 @@ async function updateStock(sku,quantity) {
   }
 
   async function createProduct() {
-    let product;
-    try{product=validProduct(productForm);}catch(e){setMessage(e.message);return;}
-    const data = await apiRequest("/products", {
-      method: "POST",
-      body: JSON.stringify(product),
-    });
-
-    if (data) {
-      setMessage("Product created successfully.");
-      await loadDashboard();
+    if(!token){setMessage("Sign in to manage products.");return;}
+    try {
+      const product=validProduct(productForm);
+      if(editingSku && product.sku!==editingSku)throw Error("SKU cannot be changed while editing.");
+      await apiProduct(editingSku?"/products/"+encodeURIComponent(editingSku):"/products",token,editingSku?"PUT":"POST",product);
+      setMessage(editingSku?"Saved product changes in AWS.":"Created product in AWS.");
+      setEditingSku(null);
+      setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});
       await loadProducts();
-    }
+      await loadDashboard();
+    } catch(e){setMessage("Product was not saved: "+e.message);}
   }
-
+  async function uploadCurrentImage(file) {
+    if(!file)return;
+    setImageBusy(true);
+    try{const url=await uploadImage(file,token);setProductForm(p=>({...p,imageUrl:url}));setMessage("Image uploaded. Save the product to attach it to inventory.");}
+    catch(e){setMessage("Image was not uploaded: "+e.message);}
+    finally{setImageBusy(false);}
+  }
+  function editProduct(item){
+    setEditingSku(item.sku);
+    setProductForm(p=>({...p,...item}));
+    setMessage("Editing "+item.sku+". Save changes after reviewing the fields.");
+    document.getElementById("product-editor")?.scrollIntoView({behavior:"smooth",block:"start"});
+  }
   function updateProductField(field, value) {
     setProductForm((current) => ({ ...current, [field]: value }));
   }
@@ -493,7 +505,8 @@ async function updateStock(sku,quantity) {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-white p-6 shadow">
+        {token && <>
+<section className="rounded-2xl bg-white p-6 shadow">
           <h2 className="text-xl font-semibold">Dashboard Metrics</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-4">
             <Metric label="Suppliers" value={dashboard?.totalSuppliers ?? "--"} />
@@ -528,9 +541,9 @@ async function updateStock(sku,quantity) {
 
       <input
         type="number"
-        value={product.quantityOnHand}
+        value={stockDrafts[product.sku] ?? product.quantityOnHand}
         onBlur={(e) => {if(String(product.quantityOnHand)!==e.target.value)updateStock(product.sku,e.target.value);}}
-        onChange={(e)=>{e.target.dataset.changed=e.target.value;}}
+        onChange={(e)=>setStockDrafts(p=>({...p,[product.sku]:e.target.value}))}
         style={{
           padding: "6px",
           border: "1px solid #ccc",
@@ -538,6 +551,7 @@ async function updateStock(sku,quantity) {
         }}
       />
 
+      <button className="inventory-edit" onClick={()=>editProduct(product)}>Edit</button>
       <button
         onClick={() => removeProduct(product.sku)}
         style={{
@@ -556,8 +570,9 @@ async function updateStock(sku,quantity) {
 </section>
 
 {token && <IntakePanel token={token} products={products} onFill={(data)=>{setProductForm(p=>({...p,...data}));setMessage("Card information copied. Verify the item before saving.");}} onUpdated={loadProducts}/>}
-        <section className="rounded-2xl bg-white p-6 shadow">
-          <h2 className="text-xl font-semibold">Add inventory product</h2>
+        <section className="rounded-2xl bg-white p-6 shadow" id="product-editor">
+          <h2 className="text-xl font-semibold">{editingSku?"Edit inventory item":"Add inventory product"}</h2>
+          {editingSku&&<button onClick={()=>{setEditingSku(null);setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});}}>Cancel edit / New product</button>}
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <input className="rounded-lg border p-3" value={productForm.productName} onChange={(e) => updateProductField("productName", e.target.value)} placeholder="Product Name" />
             <input className="rounded-lg border p-3" value={productForm.sku} onChange={(e) => updateProductField("sku", e.target.value)} placeholder="SKU" />
@@ -570,12 +585,15 @@ async function updateStock(sku,quantity) {
             <input className="rounded-lg border p-3" value={productForm.condition} onChange={e=>updateProductField("condition",e.target.value)} placeholder="Condition" />
             <input className="rounded-lg border p-3" value={productForm.barcode} onChange={e=>updateProductField("barcode",e.target.value)} placeholder="Barcode" />
             <input className="rounded-lg border p-3" value={productForm.imageUrl} onChange={e=>updateProductField("imageUrl",e.target.value)} placeholder="HTTPS image URL" />
+            <label className="product-photo-upload">Upload product photo <input type="file" accept="image/jpeg,image/png,image/webp" disabled={imageBusy||!token} onChange={e=>{const file=e.target.files?.[0];e.target.value='';uploadCurrentImage(file);}} />{imageBusy&&<small>Uploading securely…</small>}</label>
+            {productForm.imageUrl&&<img className="editor-preview" src={productForm.imageUrl} alt="Product preview" onError={e=>{e.currentTarget.style.display="none";}}/>}
             <label className="publish-label"><input type="checkbox" checked={productForm.published===true} onChange={e=>updateProductField("published",e.target.checked)}/> Publish on storefront</label>
           </div>
            <button className="mt-4 rounded-xl bg-green-600 px-4 py-2 font-semibold text-white" onClick={createProduct} disabled={!token}>
-            Add Product
+            {editingSku?"Save product changes":"Add product to AWS"}
           </button>
      </section>
+      </>}
       </>
     )}
 {page === "cart" && (
