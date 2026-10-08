@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validProduct,parseInventoryCsv,matchPhotoFiles,magicSearch} from '../src/lib/intake.js';
+const base={sku:'MTG-MH3-123',productName:'Test card',category:'Magic: The Gathering',salePrice:3.5,quantityOnHand:1};
+test('validates product and keeps numeric money and stock',()=>{const p=validProduct({...base,salePrice:'5.25',quantityOnHand:'3'});assert.equal(p.salePrice,5.25);assert.equal(p.quantityOnHand,3);});
+test('rejects blank price, negative qty and bad SKU',()=>{for(const p of [{...base,salePrice:''},{...base,quantityOnHand:-1},{...base,sku:'../abc'}])assert.throws(()=>validProduct(p));});
+test('CSV handles quoted commas and escaped quotes',()=>{const t='sku,productName,category,salePrice,quantityOnHand\nMTG-ABC,\"A, B \"\"Foil\"\" Card\",Magic: The Gathering,2.50,4';const rows=parseInventoryCsv(t);assert.equal(rows[0].productName,'A, B "Foil" Card');assert.equal(rows[0].salePrice,2.5);});
+test('CSV requires a SKU and rejects duplicate SKUs',()=>{const t='sku,productName,category,salePrice,quantityOnHand\nMTG-1,Card,Magic: The Gathering,1,2\nMTG-1,Another,Magic: The Gathering,1,2';assert.throws(()=>parseInventoryCsv(t),/Duplicate/);});
+test('matches photographs only to exact SKU stem and rejects duplicates',()=>{const products=[base];const files=[{name:'MTG-MH3-123.jpg',type:'image/jpeg',size:1000},{name:'MTG-MH3-123.png',type:'image/png',size:1000},{name:'OTHER.jpg',type:'image/jpeg',size:1000}];const r=matchPhotoFiles(files,products);assert.equal(r.hits.length,1);assert.equal(r.rejected.length,2);});
+test('rejects huge and unsupported image uploads in a batch',()=>{const r=matchPhotoFiles([{name:'MTG-MH3-123.jpg',type:'image/jpeg',size:10*1024*1024},{name:'MTG-MH3-123.svg',type:'image/svg+xml',size:100}], [base]);assert.equal(r.hits.length,0);assert.equal(r.rejected.length,2);});
