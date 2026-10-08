@@ -8,7 +8,7 @@ export function shopMoney(value) {
 export function publishedCatalog(response) {
   const rows = Array.isArray(response) ? response : response?.items;
   if (!Array.isArray(rows)) throw new Error('Catalog returned an invalid product list.');
-  return rows.filter(p=>p && p.published === true && p.isactive !== false && p.isActive !== false)
+  return rows.filter(p=>p && p.published !== false && p.isactive !== false && p.isActive !== false)
     .map(p=>({
       sku:String(p.sku??'').trim(),productName:String(p.productName??p.name??'').trim(),
       category:String(p.category||'Accessories'),salePrice:Number(p.salePrice),
