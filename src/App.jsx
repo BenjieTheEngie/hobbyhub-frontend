@@ -172,7 +172,12 @@ async function updateStock(sku,quantity) {
   async function loadProducts() {
     const data = await apiRequest("/products");
     if (data) {
-      setProducts(Array.isArray(data) ? data : data.items || []);
+      setProducts((Array.isArray(data)?data:data.items||[]).map(p=>({
+        ...p, sku:String(p.sku||""),productName:String(p.productName||p.name||""),
+        category:String(p.category||"Accessories"),salePrice:Math.max(0,Number(p.salePrice)||0),
+        quantityOnHand:Math.max(0,Math.trunc(Number(p.quantityOnHand)||0)),
+        imageUrl:String(p.imageUrl||""),published:p.published===true,isactive:p.isactive!==false
+      })));
       setMessage("Products loaded.");
     }
   }
@@ -183,11 +188,12 @@ async function updateStock(sku,quantity) {
       const product=validProduct(productForm);
       if(editingSku && product.sku!==editingSku)throw Error("SKU cannot be changed while editing.");
       await apiProduct(editingSku?"/products/"+encodeURIComponent(editingSku):"/products",token,editingSku?"PUT":"POST",product);
-      setMessage(editingSku?"Saved product changes in AWS.":"Created product in AWS.");
+      const successMessage=editingSku?"Saved product changes in AWS.":"Created product in AWS.";
       setEditingSku(null);
       setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});
       await loadProducts();
       await loadDashboard();
+      setMessage(successMessage);
     } catch(e){setMessage("Product was not saved: "+e.message);}
   }
   async function uploadCurrentImage(file) {
@@ -335,7 +341,7 @@ async function updateStock(sku,quantity) {
       marginTop: "16px"
     }}
   >
-    {["All","Magic: The Gathering", "Pokémon", "Warhammer", "Accessories"].map((category) => (
+    {["All","Magic: The Gathering", "Pokémon", "Yu-Gi-Oh!", "Warhammer", "Video Games", "Accessories"].map((category) => (
       <div
         key={category}
         onClick={() => setSelectedCategory(category)}
@@ -643,7 +649,7 @@ async function updateStock(sku,quantity) {
     setCart((currentCart) =>
       currentCart.map((i) =>
         i.sku === item.sku
-          ? { ...i, cartQuantity: i.cartQuantity + 1 }
+          ? { ...i, cartQuantity: Math.min(item.quantityOnHand,i.cartQuantity + 1) }
           : i
       )
     )
