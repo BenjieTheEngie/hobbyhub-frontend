@@ -166,3 +166,20 @@ main>.mx-auto>header.hh-header{padding:0!important;margin-bottom:26px!important;
  .hh-site-note{flex-direction:column;text-align:center}
 }
 @media(prefers-reduced-motion:reduce){.hh-shop *{scroll-behavior:auto!important;transition:none!important}}
+
+/* Saved products and stock filters — scoped to the storefront only. */
+.hh-product{position:relative}
+.hh-save-heart{position:absolute;z-index:2;top:12px;right:12px;display:grid;place-items:center;width:37px;height:37px;min-width:37px;margin:0;padding:0;border-radius:50%;border:1px solid #d7e2f2;background:#ffffffee;color:#4770ad;box-shadow:0 5px 12px #20375b20;font-size:23px;line-height:1}
+.hh-save-heart:hover:not(:disabled),.hh-save-heart:focus-visible{background:#fceef3;color:#a91f50;box-shadow:0 5px 12px #20375b20;transform:none}
+.hh-save-heart.is-saved{color:#bd315a;background:#fff0f4;border-color:#ebccda}
+.hh-filters .hh-saved-filter{display:flex;align-items:center;justify-content:center;gap:8px;align-self:end;margin:0;min-height:42px;padding:9px 13px;border-radius:10px;border:1px solid #d6e2f3;background:#f9fbff;color:#315f9a;box-shadow:none;font-size:12px;font-weight:800;white-space:normal}
+.hh-filters .hh-saved-filter:hover:not(:disabled){background:#eaf2ff;color:#234d8d;transform:none;box-shadow:none}
+.hh-filters .hh-saved-filter.is-on{background:#fce9ef;border-color:#f3cad8;color:#9f2a53}
+.hh-filters .hh-saved-filter span{font-size:21px;line-height:1}
+.hh-dialog-save{margin:8px 0 13px;padding:9px 13px;min-height:39px;border:1px solid #cbd9ef;border-radius:9px;color:#305995;background:#edf4ff;box-shadow:none;font-size:12px;font-weight:800}
+.hh-dialog-save.is-saved{background:#fff0f4;border-color:#f3ccdb;color:#a12f57}
+.hh-dialog-save:hover:not(:disabled){box-shadow:none;transform:none}
+.hh-cart-row-actions{display:flex;gap:13px;flex-wrap:wrap;align-items:center}
+.hh-cart-row-actions .hh-save-for-later{color:#3265a6;border:0;background:none;box-shadow:none;text-decoration:underline;font-size:12px;font-weight:750;margin:0;padding:6px 0}
+.hh-cart-row-actions .hh-save-for-later:hover:not(:disabled){color:#1e508d;box-shadow:none;transform:none}
+@media(max-width:700px){.hh-save-heart{width:34px;height:34px;min-width:34px;right:9px;top:9px}.hh-filters .hh-saved-filter{width:100%}}
