@@ -355,7 +355,7 @@ async function updateStock(product,quantity) {
         <p style={{ fontSize: "12px", color: "#555" }}>SKU {product.sku} {product.productId && <span>· record {safeRecordLabel(product)}</span>}</p>
         {countSkuMatches(products,product.sku)>1 && <p style={{fontSize:12,fontWeight:700,color:"#9d5b1c"}}>Duplicate SKU — {countSkuMatches(products,product.sku)} distinct records</p>}
         {product.stockReported!==true && <p style={{fontSize:12,color:"#667992"}}>Stock not reported in Products API</p>}
-        {Number(product.salePrice)<0 && <p style={{fontSize:12,color:"#af2631"}}>Invalid negative sale price</p>
+        {product.priceInvalid===true && <p style={{fontSize:12,color:"#af2631"}}>Invalid negative sale price</p>
       </div>
 
       <p>{product.category}</p>
