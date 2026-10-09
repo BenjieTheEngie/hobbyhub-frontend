@@ -30,8 +30,12 @@ export function productIssues(product,counts) {
   const sku=String(product?.sku||'').trim();
   if(!sku)issues.push('missing-sku');
   if(sku && (counts.get(sku.toLowerCase())||0)>1)issues.push('duplicate-sku');
-  if(product?.stockReported!==true)issues.push('unknown-stock');
-  else if(Number.isSafeInteger(product.quantityOnHand) && Number.isSafeInteger(product.reorderPoint) && product.reorderPoint>0 && product.quantityOnHand<=product.reorderPoint)issues.push('low-stock');
+  const stockIsV2=product?.stockSource==='stock-v2';
+  const sellable=stockIsV2?product?.stockAvailable:product?.quantityOnHand;
+  if(product?.stockReported!==true || !Number.isSafeInteger(sellable) || sellable<0)
+    issues.push('unknown-stock');
+  else if(Number.isSafeInteger(product.reorderPoint) && product.reorderPoint>0 &&
+    sellable<=product.reorderPoint)issues.push('low-stock');
   const price=product?.rawSalePrice ?? product?.salePrice;
   if(price==null || String(price).trim()==='' || product?.priceInvalid===true || !Number.isFinite(Number(price)) || Number(price)<0)issues.push('invalid-price');
   else if(Number(price)===0)issues.push('zero-price');
@@ -94,7 +98,7 @@ export function inventorySearch(products,{query='',category='All',view='all',sor
   });
 }
 export const INVENTORY_EXPORT_FIELDS=[
-  'productId','sku','productName','category','salePrice','quantityOnHand','stockReported',
+  'productId','sku','productName','category','salePrice','quantityOnHand','stockReserved','stockAvailable','stockReported',
   'condition','finish','setCode','collectorNumber','isactive','published','createdAt','issues',
 ];
 function escapeCsvCell(value) {
@@ -111,6 +115,8 @@ export function inventoryAuditCsv(products) {
       ...p,
       salePrice:p.rawSalePrice??p.salePrice,
       quantityOnHand:p.stockReported===true?p.quantityOnHand:'UNKNOWN',
+      stockReserved:p.stockReported===true&&p.stockSource==='stock-v2'?p.stockReserved:'UNKNOWN',
+      stockAvailable:p.stockReported===true&&p.stockSource==='stock-v2'?p.stockAvailable:'UNKNOWN',
       published:p.publicationKnown===false?'UNKNOWN':p.published,
       isactive:p.activeStatusKnown===false?'UNKNOWN':p.isactive,
       issues:productIssues(p,counts).join('; '),
