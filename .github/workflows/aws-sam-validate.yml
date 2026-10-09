@@ -22,6 +22,8 @@ jobs:
     timeout-minutes: 15
     env:
       SAM_CLI_TELEMETRY: '0'
+      AWS_DEFAULT_REGION: us-east-2
+      AWS_REGION: us-east-2
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/setup-sam@v2
