@@ -1,0 +1,25 @@
+.hh-catalog-audit{margin:24px 0;background:#fff;border:1px solid #dce4ef;border-radius:16px;padding:22px;color:#284768;box-shadow:0 8px 24px #21375510}
+.hh-catalog-audit *{box-sizing:border-box}
+.hh-catalog-audit-head span{color:#6484b1;font-size:10px;font-weight:900;letter-spacing:.12em}
+.hh-catalog-audit-head h3{font-size:20px;color:#254574;margin:7px 0}
+.hh-catalog-audit-head p{font-size:12px;color:#667f9d;line-height:1.6;margin:0}
+.hh-catalog-audit-stats{margin:18px 0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.hh-catalog-audit-stats>div{display:grid;gap:7px;border:1px solid #e1e9f5;background:#f7faff;border-radius:10px;padding:14px}
+.hh-catalog-audit-stats small{font-size:11px;color:#6482a7}
+.hh-catalog-audit-stats strong{font-size:24px;color:#28538b}
+.hh-catalog-audit-alert{font-size:11px;line-height:1.7;padding:13px;background:#f3f7ff;border:1px solid #dce8fc;border-radius:10px;color:#4d668d}
+.hh-catalog-audit-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:18px 0 12px}
+.hh-catalog-audit-controls label{display:grid;gap:5px;font-size:11px;color:#6883a4;font-weight:800}
+.hh-catalog-audit-controls select{min-width:230px;border:1px solid #dce5f2;border-radius:8px;color:#36557a;padding:9px;background:#fff;font-size:12px}
+.hh-catalog-audit-controls>span{font-size:12px;color:#7890ae}
+.hh-catalog-audit-scroll{overflow-x:auto;border:1px solid #e2eaf4;border-radius:10px}
+.hh-catalog-audit table{min-width:650px;width:100%;border-collapse:collapse;margin:0}
+.hh-catalog-audit th{text-align:left;color:#6884a9;background:#f3f7ff;font-size:10px;letter-spacing:.07em;padding:12px}
+.hh-catalog-audit td{vertical-align:top;border-top:1px solid #e7edf6;font-size:12px;color:#486280;padding:12px}
+.hh-catalog-audit td:first-child b{display:block;color:#2c4e7d}
+.hh-catalog-audit td:first-child small{color:#8196af;font-size:11px}
+.hh-catalog-issue{display:inline-flex;padding:5px 8px;background:#f6f0e8;border:1px solid #ecdccb;border-radius:8px;font-size:10px;color:#89532a;margin:0 6px 6px 0}
+.hh-catalog-image-note{display:block;color:#7592b5;font-size:11px}
+.hh-catalog-audit-empty{padding:28px;text-align:center;color:#7890ac;font-size:12px}
+.hh-catalog-audit-foot{font-size:11px;line-height:1.5;color:#8194ac;margin-top:17px}
+@media(max-width:650px){.hh-catalog-audit{padding:15px}.hh-catalog-audit-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.hh-catalog-audit-controls select{min-width:0;width:100%}}
