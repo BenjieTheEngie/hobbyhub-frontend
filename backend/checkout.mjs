@@ -4,6 +4,7 @@ import {DynamoDBClient} from '@aws-sdk/client-dynamodb';
 import {DynamoDBDocumentClient,GetCommand,UpdateCommand,TransactWriteCommand,ScanCommand} from '@aws-sdk/lib-dynamodb';
 import {SecretsManagerClient,GetSecretValueCommand} from '@aws-sdk/client-secrets-manager';
 import {reply,jsonBody,identityOf,isAdmin} from './security.mjs';
+import {stripeCheckoutEnabled} from './guard.mjs';
 import {validateCart,validatedShopItem,orderTotal,sessionLineItems,validateShipping,requireProductionSafety,classifyStripeEvent,ORDER_HOLD_SECONDS} from './checkout-logic.mjs';
 
 const doc=DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -29,6 +30,8 @@ function stripeErrorToReply(e){
 }
 async function orderRecord(orderId){return (await doc.send(new GetCommand({TableName:ordersTable(),Key:{orderId},ConsistentRead:true}))).Item;}
 export async function beginCheckoutHandler(event){
+ // Before parsing cart, reading Stripe secrets or reaching DynamoDB.
+ if(!stripeCheckoutEnabled())return reply(503,{message:'Legacy checkout is retired. Payments are disabled.'});
  if(methodOf(event)!=='POST')return reply(405,{message:'POST required.'});
  let cart,clientOrderId;
  try{const input=jsonBody(event);cart=validateCart(input.items);clientOrderId=input.checkoutRequestId;if(clientOrderId && !/^[0-9a-f-]{36}$/.test(clientOrderId))throw new Error('Invalid checkout request ID.');}catch(e){return reply(400,{message:e.message});}
@@ -96,6 +99,9 @@ async function releaseReservation(orderId, sessionId=null){
  await doc.send(new TransactWriteCommand({TransactItems:transact,ClientRequestToken:`rel-${orderId.slice(0,32)}`}));
 }
 export async function stripeWebhookHandler(event){
+ // Do not mutate inventory, orders or acknowledge payment events in a
+ // mistakenly deployed legacy add-on. No test/live webhook execution here.
+ if(!stripeCheckoutEnabled())return reply(503,{message:'Legacy checkout webhook is disabled.'});
  if(methodOf(event)!=='POST')return reply(405,{message:'POST required.'});
  let stripe,secret;
  try{({stripe,webhookSecret:secret}=await stripeClient());}catch(e){console.error('Webhook config failure',e);return reply(503,{message:'Checkout webhook unavailable.'});}
@@ -120,6 +126,7 @@ export async function stripeWebhookHandler(event){
  }
 }
 export async function statusHandler(event){
+ if(!stripeCheckoutEnabled())return reply(503,{message:'Legacy checkout status is disabled.'});
  if(methodOf(event)!=='GET')return reply(405,{message:'GET required.'});
  const sessionId=event.queryStringParameters?.session_id;
  if(!/^cs_test_[A-Za-z0-9_]+$/.test(sessionId||''))return reply(400,{message:'Valid sandbox checkout session required.'});
@@ -133,6 +140,7 @@ export async function statusHandler(event){
  }catch(e){console.error('Checkout status failed',e);return reply(503,{message:'Order status is temporarily unavailable.'});}
 }
 export async function reconcileHandler(){
+ if(!stripeCheckoutEnabled())throw Error('Legacy checkout reconciliation is disabled.');
  try{
   const {stripe}=await stripeClient();
   const now=Math.floor(Date.now()/1000),result=await doc.send(new ScanCommand({TableName:ordersTable(),Limit:100}));
@@ -164,6 +172,9 @@ export async function adminOrdersHandler(event){
       if(data.LastEvaluatedKey)return reply(503,{message:'Order queue exceeds unpaginated limit; add paginated order query before scaling.'});
       return reply(200,{orders:(data.Items||[]).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))});
     }
+    // Historical order shipping mutation is part of the retired checkout.
+    // Read-only order operations use the separately gated order-ops service.
+    if(method==='POST')return reply(503,{message:'Legacy order fulfillment is disabled.'});
     if(method==='POST' && /^[0-9a-f-]{36}$/.test(orderId||'')){
       const input=jsonBody(event),tracking=String(input.trackingNumber||'').trim(),carrier=String(input.carrier||'').trim();
       if(tracking.length>120||carrier.length>100||(!tracking && carrier))return reply(400,{message:'Shipping carrier or tracking number is invalid.'});
