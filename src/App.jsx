@@ -325,22 +325,22 @@ async function updateStock(product,quantity) {
 
 <section className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Inventory Management</h2>
-  <p className="muted">Remove SKU archives a product on the upgraded AWS API: it disappears from active inventory and the storefront, while purchase history is retained.</p>
+  <p className="muted">{USE_LEGACY_PRODUCT_ROUTES ? "The original AWS API identifies records by productId. DELETE may permanently delete ONE record, not every item sharing a SKU. Missing stock must be checked separately." : "The upgraded inventory API archives a unique SKU and retains its history."}</p>
   <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
     <button type="button" aria-pressed={!showArchived} onClick={()=>setShowArchived(false)} style={{background:!showArchived?"#173d79":"#e9effa",color:!showArchived?"#fff":"#283f64"}}>
-      Active SKUs ({inventoryForView(products,false).length})
+      {USE_LEGACY_PRODUCT_ROUTES?"AWS records":"Active SKUs"} ({inventoryForView(products,false).length})
     </button>
     <button type="button" aria-pressed={showArchived} onClick={()=>setShowArchived(true)} style={{background:showArchived?"#173d79":"#e9effa",color:showArchived?"#fff":"#283f64"}}>
       View archived ({inventoryForView(products,true).length})
     </button>
   </div>
   {inventoryNotice && <p role="status" aria-live="polite" style={{padding:"10px 12px",borderRadius:8,background:"#eef3ff",color:"#243a64",overflowWrap:"anywhere"}}>{inventoryNotice}</p>}
-  {!String(import.meta.env.VITE_INVENTORY_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "").trim() && <p className="muted">The new inventory API URL is not configured for this frontend deployment. If a SKU cannot be removed, the AWS add-on and its inventory-write setting must be activated first.</p>}
+  {USE_LEGACY_PRODUCT_ROUTES && <p className="muted" role="note">Original AWS API active: deletes are potentially permanent. The new soft-archive API is not yet connected. Do not delete a record until you confirm it is a duplicate.</p>}
   {inventoryForView(products,showArchived).length === 0 && <p className="muted">{showArchived?"No archived SKUs were returned by the API.":"No active SKUs were returned by the API."}</p>}
 
-  {inventoryForView(products,showArchived).map((product) => (
+  {inventoryForView(products,showArchived).map((product,index) => (
     <div
-      key={product.sku}
+      key={product.productId || product.sku+"-"+index}
       style={{
         display: "grid",
         gridTemplateColumns: "2fr 1fr 1fr 1fr",
@@ -352,7 +352,10 @@ async function updateStock(product,quantity) {
     >
       <div>
         <strong>{product.productName}</strong>
-        <p style={{ fontSize: "12px", color: "#555" }}>{product.sku}</p>
+        <p style={{ fontSize: "12px", color: "#555" }}>SKU {product.sku} {product.productId && <span>· record {safeRecordLabel(product)}</span>}</p>
+        {countSkuMatches(products,product.sku)>1 && <p style={{fontSize:12,fontWeight:700,color:"#9d5b1c"}}>Duplicate SKU — {countSkuMatches(products,product.sku)} distinct records</p>}
+        {product.stockReported!==true && <p style={{fontSize:12,color:"#667992"}}>Stock not reported in Products API</p>}
+        {Number(product.salePrice)<0 && <p style={{fontSize:12,color:"#af2631"}}>Invalid negative sale price</p>
       </div>
 
       <p>{product.category}</p>
