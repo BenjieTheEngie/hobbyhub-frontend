@@ -8,6 +8,7 @@ export const INVENTORY_VIEWS = [
   ['review','Needs review'],
   ['duplicates','Duplicate SKUs'],
   ['missing-stock','Unknown stock'],
+  ['low-stock','Low stock'],
   ['invalid-price','Price issues'],
   ['archived','Archived'],
 ];
@@ -30,6 +31,7 @@ export function productIssues(product,counts) {
   if(!sku)issues.push('missing-sku');
   if(sku && (counts.get(sku.toLowerCase())||0)>1)issues.push('duplicate-sku');
   if(product?.stockReported!==true)issues.push('unknown-stock');
+  else if(Number.isSafeInteger(product.quantityOnHand) && Number.isSafeInteger(product.reorderPoint) && product.reorderPoint>0 && product.quantityOnHand<=product.reorderPoint)issues.push('low-stock');
   const price=product?.rawSalePrice ?? product?.salePrice;
   if(price==null || String(price).trim()==='' || product?.priceInvalid===true || !Number.isFinite(Number(price)) || Number(price)<0)issues.push('invalid-price');
   else if(Number(price)===0)issues.push('zero-price');
@@ -39,13 +41,14 @@ export function productIssues(product,counts) {
 }
 export function inventorySummary(products) {
   const counts=skuCounts(products);
-  let review=0,unknownStock=0,priceIssues=0,archived=0;
+  let review=0,unknownStock=0,lowStock=0,priceIssues=0,archived=0;
   const categories=new Set();
   const duplicateSkus=[...counts.values()].filter(n=>n>1).length;
   for(const product of products){
     const issues=productIssues(product,counts);
     if(issues.length)review++;
     if(issues.includes('unknown-stock'))unknownStock++;
+    if(issues.includes('low-stock'))lowStock++;
     if(issues.includes('invalid-price')||issues.includes('zero-price'))priceIssues++;
     if(product?.isactive===false || product?.isActive===false)archived++;
     if(product?.category)categories.add(product.category);
@@ -56,6 +59,7 @@ export function inventorySummary(products) {
     duplicateSkus,
     review,
     unknownStock,
+    lowStock,
     priceIssues,
     archived,
     categories:[...categories].sort((a,b)=>a.localeCompare(b)),
@@ -72,6 +76,7 @@ export function inventorySearch(products,{query='',category='All',view='all',sor
     if(view==='review' && issues.length===0)return false;
     if(view==='duplicates' && !issues.includes('duplicate-sku'))return false;
     if(view==='missing-stock' && !issues.includes('unknown-stock'))return false;
+    if(view==='low-stock' && !issues.includes('low-stock'))return false;
     if(view==='invalid-price' && !issues.includes('invalid-price') && !issues.includes('zero-price'))return false;
     if(view==='archived' && p.isactive!==false && p.isActive!==false)return false;
     if(view==='active' && (p.isactive===false || p.isActive===false))return false;
