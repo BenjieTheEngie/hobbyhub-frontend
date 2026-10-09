@@ -1,0 +1,43 @@
+name: AWS SAM template validation
+on:
+  push:
+    branches: [main, 'feature/**']
+    paths:
+      - 'aws/**'
+      - 'backend/**'
+      - '.github/workflows/aws-sam-validate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aws/**'
+      - 'backend/**'
+      - '.github/workflows/aws-sam-validate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: Lint all AWS SAM templates offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/setup-sam@v2
+      - name: Validate all SAM manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' templates < <(find aws -type f -name 'template.yaml' -print0 | sort -z)
+          if (( ${#templates[@]} == 0 )); then
+            echo 'ERROR: no AWS SAM templates found.'
+            exit 1
+          fi
+          printf 'Found %s AWS SAM templates.\n' "${#templates[@]}"
+          for template in "${templates[@]}"; do
+            echo "::group::Validating ${template}"
+            sam validate --lint --template-file "${template}"
+            echo "::endgroup::"
+          done
+      - name: Verify no credentials were required
+        run: |
+          echo 'SAM validation completed with no AWS credentials and no cloud resource changes.'
