@@ -14,9 +14,9 @@ const publicFunction=between('  PublicCatalogFunction:','Outputs:');
 
 test('Stock V2 flags default to OFF and IAM conditions reference exact flags',()=>{
   for(const param of ['EnableStockWrites','EnableStockInitialization','EnableCatalogApprovalWrites']){
-    const portion=between('  '+param+':','  '+({EnableStockWrites:'EnableCatalogApprovalWrites',
-      EnableCatalogApprovalWrites:'EnableStockInitialization',
-      EnableStockInitialization:'Resources:'}[param])+':');
+    const start=template.indexOf('  '+param+':');
+    assert.ok(start>=0,'Missing feature flag '+param);
+    const portion=template.slice(start).split(/\n  [A-Za-z]\w*:|\nConditions:|\nResources:/)[0];
     assert.match(portion,/Default: 'false'/);
   }
   assert.match(template,/StockWritesActive: !Equals \[!Ref EnableStockWrites, 'true'\]/);
