@@ -362,10 +362,11 @@ async function updateStock(product,quantity) {
 
       <input
         type="number"
-        disabled={isArchived(product) || Boolean(busySku)}
+        disabled={USE_LEGACY_PRODUCT_ROUTES || isArchived(product) || Boolean(busySku) || countSkuMatches(products,product.sku)>1}
         aria-label={"Stock for "+product.sku}
-        value={stockDrafts[product.sku] ?? product.quantityOnHand}
-        onBlur={(e) => {if(!isArchived(product) && String(product.quantityOnHand)!==e.target.value)updateStock(product.sku,e.target.value);}}
+        value={product.stockReported===true ? stockDrafts[product.sku] ?? product.quantityOnHand : ""}
+        placeholder={product.stockReported===true?"":"Unknown"}
+        onBlur={(e) => {if(!USE_LEGACY_PRODUCT_ROUTES && !isArchived(product) && String(product.quantityOnHand)!==e.target.value)updateStock(product,e.target.value);}}
         onChange={(e)=>setStockDrafts(p=>({...p,[product.sku]:e.target.value}))}
         style={{
           padding: "6px",
@@ -374,11 +375,11 @@ async function updateStock(product,quantity) {
         }}
       />
 
-      <button className="inventory-edit" disabled={isArchived(product) || Boolean(busySku)} onClick={()=>editProduct(product)}>Edit</button>
+      <button className="inventory-edit" disabled={isArchived(product) || Boolean(busySku) || (USE_LEGACY_PRODUCT_ROUTES && !product.productId) || (!USE_LEGACY_PRODUCT_ROUTES && countSkuMatches(products,product.sku)>1)} onClick={()=>editProduct(product)}>Edit</button>
       <button
         type="button"
-        disabled={Boolean(busySku)}
-        onClick={() => isArchived(product) ? restoreProduct(product) : removeProduct(product.sku)}
+        disabled={Boolean(busySku) || (USE_LEGACY_PRODUCT_ROUTES && !product.productId) || (!USE_LEGACY_PRODUCT_ROUTES && countSkuMatches(products,product.sku)>1)}
+        onClick={() => isArchived(product) ? restoreProduct(product) : removeProduct(product)}
         style={{
           background: isArchived(product) ? "#25724d" : "#b42332",
           color: "white",
@@ -388,7 +389,7 @@ async function updateStock(product,quantity) {
           cursor: "pointer"
         }}
       >
-        {busySku===product.sku ? "Saving..." : isArchived(product) ? "Restore SKU" : "Remove SKU"}
+        {busySku===(USE_LEGACY_PRODUCT_ROUTES?product.productId:product.sku) ? "Working..." : isArchived(product) ? "Restore SKU" : USE_LEGACY_PRODUCT_ROUTES ? "Delete record" : "Archive SKU"}
       </button>
     </div>
   ))}
