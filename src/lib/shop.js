@@ -16,7 +16,8 @@ export function publishedCatalog(response) {
     if(key)counts.set(key,(counts.get(key)||0)+1);
   }
   return rows.filter(p=>{
-    if(!p || p.published!==true || p.isactive===false || p.isActive===false)return false;
+    if(!p || p.published!==true || p.isactive===false || p.isActive===false ||
+      (p.status!==undefined && p.status!=='ACTIVE'))return false;
     const sku=String(p.sku??'').trim();
     return sku && counts.get(sku.toLowerCase())===1 &&
       p.quantityOnHand!==undefined && p.quantityOnHand!==null &&
@@ -29,7 +30,8 @@ export function publishedCatalog(response) {
     setCode:String(p.setCode||''),collectorNumber:String(p.collectorNumber||''),
     condition:String(p.condition||''),finish:String(p.finish||''),
     createdAt:typeof p.createdAt==='string'?p.createdAt:'',
-  })).filter(p=>p.sku && p.productName && Number.isFinite(p.salePrice) && p.salePrice>0);
+  })).filter(p=>p.sku && p.productName && Number.isFinite(p.salePrice) && p.salePrice>0 &&
+    p.salePrice<=50000 && Math.abs(p.salePrice*100-Math.round(p.salePrice*100))<=1e-6);
 }
 
 export function shopFilter(products,{search='',category='All',sort='featured',savedSkus=[],savedOnly=false,availability='all'}={}) {

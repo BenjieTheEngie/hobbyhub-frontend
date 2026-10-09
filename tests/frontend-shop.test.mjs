@@ -94,3 +94,15 @@ test('Scryfall prints lookup refuses untrusted API URL',async()=>{
     await assert.rejects(()=>magicPrintings('Lightning Bolt'),/safe printing lookup/);
   } finally{globalThis.fetch=old;}
 });
+
+test('shop rejects inactive legacy products and prices that cannot be charged exactly',()=>{
+  const base={...products[0],published:true,status:'ACTIVE'};
+  const rows=[
+    base,
+    {...base,sku:'HIDDEN',status:'INACTIVE'},
+    {...base,sku:'BROKEN-PRICE',salePrice:3.999},
+    {...base,sku:'EXPENSIVE',salePrice:60000},
+    {...base,sku:'VALID-CENTS',salePrice:12.25}
+  ];
+  assert.deepEqual(publishedCatalog(rows).map(p=>p.sku),['MTG-MH3-123-N','VALID-CENTS']);
+});
