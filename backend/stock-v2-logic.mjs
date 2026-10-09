@@ -78,10 +78,13 @@ export function ownRecord(record,productId,request,operation) {
   return record.delta===request.delta && record.expectedVersion===request.expectedVersion && record.reason===request.reason;
 }
 export function safePublicProduct(product,stock) {
-  if(!product||product.published!==true||product.isactive===false||product.isActive===false||\n     (product.status!==undefined&&product.status!=='ACTIVE')||!stock)return null;
+  if(!product||product.published!==true||product.isactive===false||product.isActive===false||
+     (product.status!==undefined&&product.status!=='ACTIVE')||!stock)return null;
   const sku=String(product.sku||'').trim(), name=String(product.productName||product.name||'').trim();
   const price=Number(product.salePrice);
-  if(!sku||!name||!Number.isFinite(price)||price<=0||price>50000||\n     Math.abs(price*100-Math.round(price*100))>1e-6||\n     typeof product.productId!=='string'||product.productId!==stock.productId)return null;
+  if(!sku||!name||!Number.isFinite(price)||price<=0||price>50000||
+     Math.abs(price*100-Math.round(price*100))>1e-6||
+     typeof product.productId!=='string'||product.productId!==stock.productId)return null;
   if(!Number.isSafeInteger(stock.quantityOnHand)||!Number.isSafeInteger(stock.reserved)||
      stock.reserved<0||stock.reserved>stock.quantityOnHand||
      stock.quantityOnHand-stock.reserved<1)return null;
