@@ -71,6 +71,11 @@ export async function catalogApprovalAdminHandler(event){
         reply(200,{applied:true,idempotent:true,productId,revision:oldAudit.toRevision}):
         reply(409,{message:'Idempotency key was used for another catalog action.'});
     }
+    const allReviews=await reviews();
+    const candidate=allReviews.find(x=>x.productId===productId);
+    if(!candidate)return reply(404,{message:'Product is not part of the verified catalog review.'});
+    if(action==='approve' && (!candidate.canApprove || candidate.fingerprint!==intent.expectedFingerprint))
+      return reply(409,{message:'Product is not eligible, has an ambiguous SKU, or changed since review.'});
     const current=await get(productsTable,{productId});
     if(!current)return reply(404,{message:'Original product no longer exists.'});
     const prior=await get(approvalTable,{productId});
