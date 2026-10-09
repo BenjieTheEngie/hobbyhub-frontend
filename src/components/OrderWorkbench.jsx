@@ -65,7 +65,7 @@ export default function OrderWorkbench({orders=[],status='unconfigured',notice='
             <tbody>{filtered.map(o=><tr key={o.orderId}><td><strong>{o.orderId.slice(0,12)}{o.orderId.length>12?'…':''}</strong><small>{o.createdAt?new Date(o.createdAt).toLocaleDateString():'Date unavailable'}</small></td>
               <td><span className={'hh-orders-state '+(o.paymentStatus==='PAID'?'is-paid':'')}>{STATUS_TEXT[o.paymentStatus]}</span></td>
               <td><span className="hh-orders-state">{STATUS_TEXT[o.fulfillmentStatus]}</span></td>
-              <td>{o.itemCount}</td><td>{centsUsd(o.totalCents)}</td>
+              <td>{o.itemCount}</td><td>{o.totalCents===null?'Pending final total':centsUsd(o.totalCents)}</td>
               <td><button type="button" className="hh-orders-review" onClick={()=>setSelected(o.orderId)}>View</button></td></tr>)}</tbody></table></div>}
       </div>
       <aside className="hh-orders-sidebar">
@@ -80,7 +80,7 @@ export default function OrderWorkbench({orders=[],status='unconfigured',notice='
         <button type="button" className="hh-order-close" onClick={()=>setSelected(null)} aria-label="Close order">×</button>
         <span className="hh-orders-eyebrow">VERIFIED ORDER RECORD</span><h3>Order {current.orderId}</h3>
         <p>Payment: {STATUS_TEXT[current.paymentStatus]}. Fulfillment: {STATUS_TEXT[current.fulfillmentStatus]}.</p>
-        <p>{current.createdAt?new Date(current.createdAt).toLocaleString():'No verified created date'} · {centsUsd(current.totalCents)}</p>
+        <p>{current.createdAt?new Date(current.createdAt).toLocaleString():'No verified created date'} · {current.totalCents===null?'Pending final total':centsUsd(current.totalCents)}</p>
         <h4>Items</h4>
         {current.items.length?<ul>{current.items.map((x,i)=><li key={x.sku+'-'+i}>{x.qty} × {x.productName}{x.sku?' · '+x.sku:''}</li>)}</ul>:<p>No line item summary was returned.</p>}
         <p className="hh-orders-readonly">Read-only order view. No fulfillment actions are enabled.</p>
