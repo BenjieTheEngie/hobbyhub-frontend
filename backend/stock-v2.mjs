@@ -1,7 +1,7 @@
 import {DynamoDBClient} from '@aws-sdk/client-dynamodb';
 import {DynamoDBDocumentClient,GetCommand,ScanCommand,TransactWriteCommand} from '@aws-sdk/lib-dynamodb';
 import {reply,jsonBody,identityOf,isAdmin} from './security.mjs';
-import {validProductId,validateInitialization,validateAdjustment,stockBalance,ownRecord,MAX_UNITS} from './stock-v2-logic.mjs';
+import {validProductId,validateInitialization,validateAdjustment,stockBalance,verifiedStockRows,ownRecord,MAX_UNITS} from './stock-v2-logic.mjs';
 
 const doc=DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const stockTable=()=>process.env.HOBBYHUB_STOCK_V2_TABLE;
@@ -32,7 +32,7 @@ async function allStock() {
     rows.push(...(r.Items||[]));key=r.LastEvaluatedKey;pages++;
   }while(key && pages<maxPages);
   if(key)throw Error('STOCK_SCAN_LIMIT');
-  return rows.map(stockBalance).filter(Boolean);
+  return verifiedStockRows(rows);
 }
 function errorReply(e) {
   if(e?.name==='TransactionCanceledException'||e?.name==='ConditionalCheckFailedException')return reply(409,{message:'Stock changed, was already initialized, or the request was previously used. Reload before retrying.'});
@@ -109,7 +109,7 @@ export async function stockV2Handler(event) {
   try {if(event.pathParameters?.productId)id=validProductId(decodeURIComponent(event.pathParameters.productId));}catch(e){return errorReply(e);}
   try{
     if(method==='GET'&&!id)return reply(200,{items:await allStock()});
-    if(method==='GET'&&id){const item=stockBalance(await currentStock(id));return item?reply(200,{item}):reply(404,{message:'Stock is not initialized for this record.'});}
+    if(method==='GET'&&id){const raw=await currentStock(id);if(!raw)return reply(404,{message:'Stock is not initialized for this record.'});const item=verifiedStockRows([raw])[0];return reply(200,{item});}
     if(method==='POST'&&id&&event.rawPath?.endsWith('/initialize'))return await handleInitialize(event,id);
     if(method==='POST'&&id&&event.rawPath?.endsWith('/adjust'))return await handleAdjust(event,id);
     return reply(405,{message:'This stock operation is not supported.'});
