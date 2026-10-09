@@ -56,6 +56,18 @@ Resources:
       KeySchema:
         - {AttributeName: requestId, KeyType: HASH}
       SSESpecification: {SSEEnabled: true}
+  CatalogApprovalTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      AttributeDefinitions:
+        - {AttributeName: productId, AttributeType: S}
+      KeySchema:
+        - {AttributeName: productId, KeyType: HASH}
+      SSESpecification: {SSEEnabled: true}
   StockApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -140,6 +152,7 @@ Resources:
         Variables:
           HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
           HOBBYHUB_STOCK_V2_TABLE: !Ref StockV2Table
+          HOBBYHUB_CATALOG_APPROVALS_TABLE: !Ref CatalogApprovalTable
           HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
       Policies:
         - Statement:
@@ -147,6 +160,7 @@ Resources:
               Action: [dynamodb:Scan]
               Resource:
                 - !GetAtt StockV2Table.Arn
+                - !GetAtt CatalogApprovalTable.Arn
                 - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
       Events:
         PublicCatalog:
@@ -166,3 +180,6 @@ Outputs:
     Value: !Ref StockV2Table
   AuditTableName:
     Value: !Ref StockV2AuditTable
+  CatalogApprovalTableName:
+    Description: Retained explicit publication approval records, initially EMPTY; no publish write API is enabled.
+    Value: !Ref CatalogApprovalTable
