@@ -72,6 +72,16 @@ test('rejects inconsistent invoice and provider evidence across lines in the sam
   const second={...good,sku:'PKM-002',productId:'physical-02',hostedInvoiceRef:'inv_other'};
   assert.throws(()=>parsePilotLedger(csv([good,second])),/payment\/invoice fields conflict/);
 });
+test('cannot reconcile two different orders to one external invoice, payment or tracking reference',()=>{
+  for(const field of ['hostedInvoiceRef','paymentEvidenceRef','trackingRef']){
+    const first={...good,trackingRef:'track_1'};
+    const second={...good,orderRef:'PILOT-002',productId:'physical-02',sku:'PKM-002',trackingRef:'track_2',
+      hostedInvoiceRef:'inv_2',paymentEvidenceRef:'provider_evt_2'};
+    second[field]=first[field];
+    assert.throws(()=>parsePilotLedger(csv([first,second])),/reused across distinct orders/);
+  }
+});
+
 test('invalid quantities, non-US assumptions and invalid verification dates are rejected',()=>{
   for(const qty of ['0','21','1.5','-1','NaN','01','9007199254740992']){
     assert.throws(()=>parsePilotLedger(csv([{...good,quantity:qty}])),/quantity/);
