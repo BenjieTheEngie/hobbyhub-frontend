@@ -39,6 +39,7 @@ These features default disabled or disconnected:
 | `VITE_ENABLE_STOCK_WRITES` | Requires literal `true`, and separate backend authorization |
 | `VITE_ENABLE_STOCK_INITIALIZATION` | Requires literal `true`; separate approval for opening balances |
 | `VITE_ORDER_OPS_API_BASE_URL` | Isolated read-only authenticated customer order API root |
+| `VITE_CARRIER_PREVIEW_API_BASE_URL` | Optional admin-only test rate-preview API root; no label or payment capability |
 | `VITE_MEDIA_API_BASE_URL` | Media and scanner add-on root |
 
 Never put Stripe secret keys, AWS IAM credentials, Cognito client secrets, or private customer data in Vite `VITE_*` variables: these are publicly embedded at build time.
@@ -56,7 +57,7 @@ Never put Stripe secret keys, AWS IAM credentials, Cognito client secrets, or pr
 1. Verify backups and reconcile legacy Inventory productId references and SKU duplicates.
 2. Deploy Stock V2 to staging with all write switches OFF. Validate authentication, readback, and approved opening balance migration.
 3. Connect the published public catalog to verified stock and valid positive prices.
-4. Implement the approved **U.S.-only shipping / no local pickup** rules; decide live rates and carrier services, complete Stock V2 reservation/release ledger, signed payment webhooks, tax, refunds and fulfillment (see `docs/US_SHIPPING_AND_FULFILLMENT.md`).
+4. Implement **carrier-calculated U.S. shipping without local pickup** using verified packed dimensions, weight and destination; deploy carrier sandbox behind admin JWT, then implement server-stored quote IDs, Stock V2 reservations, signed payment webhooks, tax, refunds and fulfillment (see `docs/CARRIER_CALCULATED_SHIPPING.md`).
 5. Only then review live Stripe launch, privacy/business policies, accessibility and end-to-end checkout security.
 
 Deployments and AWS changes require the owner's approval and verification of the correct account and environment.
