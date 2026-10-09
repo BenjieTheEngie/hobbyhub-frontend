@@ -59,3 +59,7 @@ File: `aws/carrier-preview/template.yaml`. This is a **new isolated stack**, not
 - Returns, damaged items, and tax configuration
 
 No live payment configuration was changed by this work.
+
+## Planned persistent shipping profiles
+
+The source-ready, separately isolated `aws/shipping-profiles/template.yaml` service stores versioned, admin-owned measured package **drafts** without editing legacy Products, Inventory or paid orders. It is not deployed and all writes are OFF by default. See `docs/SHIPPING_PROFILE_BACKEND.md` before discussing any deployment, permission or CSV import. No DRAFT record can authorize a customer shipment or Stripe charge.
