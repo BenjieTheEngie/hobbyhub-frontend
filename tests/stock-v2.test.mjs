@@ -73,7 +73,7 @@ test('browser stock adapter joins by productId, never ambiguous SKU',()=>{
     {productId:'p2',sku:'MTG-001',stockReported:false},
     {productId:'p3',sku:'MTG-001',stockReported:false}];
   const rows=mergeVerifiedStock(products,snap);
-  assert.deepEqual(rows.map(x=>[x.quantityOnHand,x.stockReported,x.stockVersion]),[[7,true,3],[0,true,1],[0,false,null]]);
+  assert.deepEqual(rows.map(x=>[x.quantityOnHand,x.stockReported,x.stockVersion]),[[7,true,3],[0,true,1],[null,false,null]]);
   assert.equal(canEditStock(rows[0],'ready'),true);
   assert.equal(canEditStock(rows[2],'ready'),false);
   assert.equal(canEditStock(rows[0],'unavailable'),false);
@@ -144,4 +144,14 @@ test('published catalog refuses inactive legacy statuses and non-cent prices',()
   assert.equal(safePublicProduct({...base,salePrice:4.999},stock),null);
   assert.equal(safePublicProduct({...base,salePrice:50001},stock),null);
   assert.equal(safePublicProduct({...base,salePrice:5.25},stock).salePrice,5.25);
+});
+
+test('a missing Stock V2 record is not an invented zero balance',()=>{
+  const snap=normalizeStockResponse({items:[]});
+  const product={productId:'needs-review',sku:'ABC',quantityOnHand:40,stockReported:true};
+  const joined=mergeVerifiedStock([product],snap);
+  assert.equal(joined[0].quantityOnHand,null);
+  assert.equal(joined[0].stockAvailable,null);
+  assert.equal(joined[0].stockReserved,null);
+  assert.equal(joined[0].stockReported,false);
 });

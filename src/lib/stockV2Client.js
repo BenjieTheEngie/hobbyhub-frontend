@@ -23,7 +23,7 @@ export function mergeVerifiedStock(products,stockById) {
   if(!Array.isArray(products)||!(stockById instanceof Map))throw Error('Verified inventory and stock snapshot required.');
   return products.map(p=>{
     const balance=stockById.get(p.productId);
-    if(!balance)return {...p,quantityOnHand:0,stockReserved:null,stockAvailable:null,stockReported:false,stockSource:'uninitialized',stockVersion:null};
+    if(!balance)return {...p,quantityOnHand:null,stockReserved:null,stockAvailable:null,stockReported:false,stockSource:'uninitialized',stockVersion:null};
     return {...p,...balance,stockReported:true,stockSource:'stock-v2'};
   });
 }
