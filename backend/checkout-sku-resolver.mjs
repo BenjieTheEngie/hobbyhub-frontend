@@ -56,6 +56,11 @@ export function resolvePublicSkuCart(publicCart,{
   for(const s of allStock){
     if(!s||typeof s.productId!=='string'||!s.productId.trim()||
        stockById.has(s.productId))throw Error('Stock identities are incomplete or duplicated.');
+    if(!productsById.has(s.productId))throw Error('Stock contains an orphaned productId.');
+    if(!Number.isSafeInteger(s.version)||s.version<1||
+       !Number.isSafeInteger(s.onHand)||s.onHand<0||
+       !Number.isSafeInteger(s.reserved)||s.reserved<0||s.reserved>s.onHand)
+      throw Error('Stock contains an invalid reserved/on-hand balance.');
     stockById.set(s.productId,s);
   }
   const items=parsed.items.map(line=>{
