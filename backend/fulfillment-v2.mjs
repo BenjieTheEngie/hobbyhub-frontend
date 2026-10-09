@@ -31,7 +31,7 @@ function requireOrder(order,expectedVersion){
   if(order.status!=='PAID'||order.paymentStatus!=='PAID')
     throw Error('Fulfillment requires verified paid payment and order status.');
   if(order.shippingCountry!=='US'||order.shippingMethod!=='domestic_shipping'||
-     order.pickupAvailable===true)
+     order.pickupAvailable!==false)
     throw Error('Only confirmed domestic shipping orders may be fulfilled.');
   if(order.shippingAddressVerified!==true)
     throw Error('Shipping address deliverability must be verified first.');
@@ -89,12 +89,13 @@ export function buildFulfillmentTransition(order,{
     '#version':'version','#paymentStatus':'paymentStatus',
     '#status':'status','#fulfillmentStatus':'fulfillmentStatus',
     '#updatedAt':'updatedAt','#shippingCountry':'shippingCountry',
-    '#shippingMethod':'shippingMethod','#addressVerified':'shippingAddressVerified'
+    '#shippingMethod':'shippingMethod','#addressVerified':'shippingAddressVerified',
+    '#pickupAvailable':'pickupAvailable'
   };
   const values={
     ':expected':expectedVersion,':one':1,':paid':'PAID',
     ':before':transition.from,':after':transition.to,':now':now,
-    ':us':'US',':method':'domestic_shipping',':verified':true
+    ':us':'US',':method':'domestic_shipping',':verified':true,':noPickup':false
   };
   const updates=['#fulfillmentStatus = :after','#version = #version + :one','#updatedAt = :now'];
   for(const [field,value] of Object.entries(changed)){
@@ -106,7 +107,7 @@ export function buildFulfillmentTransition(order,{
     TransactItems:[
       {Update:{
         TableName:orderTable,Key:{orderId:order.orderId},
-        ConditionExpression:'#version = :expected AND #paymentStatus = :paid AND #status = :paid AND #fulfillmentStatus = :before AND #shippingCountry = :us AND #shippingMethod = :method AND #addressVerified = :verified',
+        ConditionExpression:'#version = :expected AND #paymentStatus = :paid AND #status = :paid AND #fulfillmentStatus = :before AND #shippingCountry = :us AND #shippingMethod = :method AND #addressVerified = :verified AND #pickupAvailable = :noPickup',
         UpdateExpression:'SET '+updates.join(', '),
         ExpressionAttributeNames:names,ExpressionAttributeValues:values
       }},
