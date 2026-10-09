@@ -20,9 +20,9 @@ export async function orderOpsHandler(event) {
       const result=await db.send(new ScanCommand({
         TableName:process.env.HOBBYHUB_ORDER_V2_TABLE,ConsistentRead:true,
         Limit:100,ExclusiveStartKey:key,
-        ProjectionExpression:'#orderId,#paymentStatus,#fulfillmentStatus,#totalCents,#currency,#items,#createdAt,#updatedAt',
+        ProjectionExpression:'#orderId,#status,#paymentStatus,#fulfillmentStatus,#totalCents,#currency,#items,#createdAt,#updatedAt',
         ExpressionAttributeNames:{
-          '#orderId':'orderId','#paymentStatus':'paymentStatus','#fulfillmentStatus':'fulfillmentStatus',
+          '#orderId':'orderId','#status':'status','#paymentStatus':'paymentStatus','#fulfillmentStatus':'fulfillmentStatus',
           '#totalCents':'totalCents','#currency':'currency','#items':'items',
           '#createdAt':'createdAt','#updatedAt':'updatedAt'
         }

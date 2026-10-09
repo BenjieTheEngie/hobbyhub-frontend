@@ -54,3 +54,14 @@ test('order totals remain integer cents, never client-calculated checkout charge
   assert.equal(centsUsd(1199),'$11.99');
   assert.equal(centsUsd(-5),'Amount unavailable');
 });
+
+test('unpaid reserved orders may have a pending tax/shipping total, never a fabricated charge',()=>{
+  const pending={orderId:'order-pending-4',status:'RESERVED',paymentStatus:'PENDING',
+    fulfillmentStatus:'UNFULFILLED',currency:'usd',totalCents:null,items:[{sku:'PKM-1',qty:1}]};
+  const rows=normalizeOrderList({items:[pending]});
+  assert.equal(rows[0].totalCents,null);
+  assert.equal(orderStats(rows).awaitingPayment,1);
+  assert.equal(centsUsd(rows[0].totalCents),'Amount unavailable');
+  assert.throws(()=>normalizeOrderList({items:[{...pending,paymentStatus:'PAID'}]}),/invalid amount/);
+  assert.throws(()=>normalizeOrderList({items:[{...pending,status:'PAID'}]}),/invalid amount/);
+});

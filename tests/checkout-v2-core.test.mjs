@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {validateCheckoutIntent,priceCentsFromStoredDollars,verifyCheckoutQuote,buildReservationTransactions,fulfillmentEligible} from '../backend/checkout-v2-core.mjs';
+import {quoteDomesticShipping,composePrecheckoutTotals} from '../backend/shipping-v2.mjs';
 
 const requestId='7cf18d40-0a57-4f45-af9f-fb5d478cf5a0';
 const inventory=[
@@ -13,6 +14,10 @@ const stock=[
   {productId:'product-02',onHand:1,reserved:0,version:2},
 ];
 const request={requestId,items:[{productId:'product-01',qty:2},{productId:'product-02',qty:1}]};
+const shippingAddress={recipient:'Test Customer',line1:'123 Test Street',city:'Boston',state:'MA',postalCode:'02110',country:'US'};
+const fakeApprovedTestRates={method:'domestic_shipping',country:'US',pickupEnabled:false,approved:true,
+  ratesCents:{contiguous:850,alaska:2500,hawaii:2600}};
+function shippingEstimate(quote){return composePrecheckoutTotals(quote,quoteDomesticShipping(shippingAddress,fakeApprovedTestRates));}
 function snapshots({allowDuplicates=false}={}) {
   return {
     productsById:new Map(inventory.map(p=>[p.productId,p])),
@@ -55,7 +60,7 @@ test('unpublished, missing, insufficient or uninitialized stock always blocks re
   assert.throws(()=>verifyCheckoutQuote(intent,q),/unavailable or unpublished/);
 });
 test('reservation plan atomically updates exact productId/version/reserved and saves immutable order data',()=>{
-  const quote=verifyCheckoutQuote(validateCheckoutIntent(request),snapshots({allowDuplicates:true}));
+  const quote=shippingEstimate(verifyCheckoutQuote(validateCheckoutIntent(request),snapshots({allowDuplicates:true})));
   const result=buildReservationTransactions(quote,{
     stockTable:'TEST-STOCK',orderTable:'TEST-ORDERS',orderId:'order-123',
     now:'2026-10-09T10:00:00Z',holdUntil:'2026-10-09T10:35:00Z'
@@ -68,19 +73,26 @@ test('reservation plan atomically updates exact productId/version/reserved and s
   assert.match(result.transactItems[0].Update.ConditionExpression,/#onHand = :onHand/);
   assert.equal(result.order.paymentStatus,'PENDING');
   assert.equal(result.order.fulfillmentStatus,'UNFULFILLED');
-  assert.equal(result.order.totalCents,5598);
+  assert.equal(result.order.totalCents,null);
+  assert.equal(result.order.subtotalCents,5598);
+  assert.equal(result.order.shippingCents,850); // test fixture, not a live shipping price
+  assert.equal(result.order.shippingMethod,'domestic_shipping');
+  assert.equal(result.order.shippingCountry,'US');
+  assert.equal(result.order.shippingAddressVerified,false);
   assert.equal('customerEmail' in result.order,false);
   assert.equal('stripeSessionId' in result.order,false);
 });
 test('reservation expiry and unknown order details refuse transaction building',()=>{
-  const quote=verifyCheckoutQuote(validateCheckoutIntent(request),snapshots({allowDuplicates:true}));
+  const quote=shippingEstimate(verifyCheckoutQuote(validateCheckoutIntent(request),snapshots({allowDuplicates:true})));
   assert.throws(()=>buildReservationTransactions(quote,{stockTable:'S',orderTable:'O',orderId:'order-3',now:'2026-10-09T10:00:00Z',holdUntil:'2026-10-09T09:00:00Z'}),/expiry/);
   assert.throws(()=>buildReservationTransactions(quote,{stockTable:'S',orderTable:'O',orderId:'bad id',now:'2026-10-09T10:00:00Z',holdUntil:'2026-10-09T10:35:00Z'}),/identity/);
 });
 test('never infer fulfillment permission from Stripe return URL or cart status',()=>{
-  const order={status:'RESERVED',paymentStatus:'PENDING',fulfillmentStatus:'UNFULFILLED',items:[{qty:1}]};
+  const order={status:'RESERVED',paymentStatus:'PENDING',fulfillmentStatus:'UNFULFILLED',shippingCountry:'US',shippingMethod:'domestic_shipping',shippingAddressVerified:false,pickupAvailable:false,items:[{qty:1}]};
   assert.equal(fulfillmentEligible(order),false);
   assert.equal(fulfillmentEligible({...order,paymentStatus:'PAID'}),false);
-  assert.equal(fulfillmentEligible({...order,paymentStatus:'PAID',status:'PAID'}),true);
-  assert.equal(fulfillmentEligible({...order,paymentStatus:'PAID',status:'PAID',items:[]}),false);
+  assert.equal(fulfillmentEligible({...order,paymentStatus:'PAID',status:'PAID'}),false);
+  assert.equal(fulfillmentEligible({...order,paymentStatus:'PAID',status:'PAID',shippingAddressVerified:true}),true);
+  assert.equal(fulfillmentEligible({...order,paymentStatus:'PAID',status:'PAID',shippingAddressVerified:true,items:[]}),false);
+  assert.equal(fulfillmentEligible({...order,paymentStatus:'PAID',status:'PAID',shippingAddressVerified:true,shippingCountry:'CA'}),false);
 });

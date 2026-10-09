@@ -31,7 +31,9 @@ The dashboard in `src/components/OrderWorkbench.jsx` is bundled with the admin s
 - Confirm the actual Cognito user pool and client ID in the right AWS account/region.
 - Validate the SAM template and review the CloudFormation change set before any deploy.
 - Do not set the order API Vercel environment variable until staged API read permissions and CORS are tested.
-- Configure shipping origin, carrier/service, domestic vs international scope, handling time, returns and refund policies **before implementing paid shipment operations**.
+- **Confirmed:** U.S.-only shipping to 50 states and DC, without local pickup. Exclude territories and military mail until specifically approved. Choose shipping origin, carrier/service, domestic rate model including Alaska/Hawaii, handling time, returns and refund policies **before enabling paid shipment operations**.
 - Do not describe the dashboard as an operating order-management service until a signed, audited checkout-and-webhook service is online.
 
 This commit does **not** deploy resources, change any AWS records, or enable charges.
+
+The pure fulfillment lifecycle and locked shipping policy are documented in `docs/US_SHIPPING_AND_FULFILLMENT.md`. They are not an active shipment API.

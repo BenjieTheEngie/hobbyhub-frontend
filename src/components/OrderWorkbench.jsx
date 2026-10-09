@@ -10,7 +10,7 @@ const STATUS_TEXT={
 const LAUNCH_ITEMS=[
   'Verify customer payment event handling and duplicate-webhook safety',
   'Link order reservations to versioned Stock V2 balances',
-  'Set domestic shipping rates, carriers, package sizes and cutoff times',
+  'Approve U.S. shipping rates separately for the lower 48/DC, Alaska and Hawaii; choose carriers, packaging and handling time',
   'Document returns, cancellations and damaged-item handling',
   'Rehearse paid → packed → shipped flow in the isolated test environment',
   'Review contact, legal and tax settings before accepting money'
@@ -33,6 +33,10 @@ export default function OrderWorkbench({orders=[],status='unconfigured',notice='
     <div className="hh-orders-status" role="status">
       <strong>{status==='unconfigured'?'Customer orders are not connected yet':status==='loading'?'Loading verified customer orders…':status==='unavailable'?'Order service cannot be verified':'Order read-only connection established'}</strong>
       <p>{status==='unconfigured'?'This interface is prepared, but no customer-order API or Stripe checkout has been deployed. No customer orders are being created.':status==='unavailable'?'Existing products and inventory are unaffected; no guessed order information will be displayed.':status==='loading'?'Waiting for the authenticated order service.':'This panel is read-only. Payment and shipment actions are disabled until stock reservations, Stripe events and shipping are verified.'}</p>
+    </div>
+    <div className="hh-orders-shipping-policy" role="note">
+      <strong>Initial shipping policy: U.S. delivery only</strong>
+      <p>Ship to the 50 states and Washington, DC. No international shipping, territories, APO/FPO or local pickup. Shipping charges, carriers, taxes and handling times are not yet configured. Shipment actions will remain locked until paid orders, address checks and shipping labels are verified.</p>
     </div>
     {notice&&<p role="alert" className="hh-orders-message">{notice}</p>}
     <div className="hh-orders-metrics">
@@ -61,7 +65,7 @@ export default function OrderWorkbench({orders=[],status='unconfigured',notice='
             <tbody>{filtered.map(o=><tr key={o.orderId}><td><strong>{o.orderId.slice(0,12)}{o.orderId.length>12?'…':''}</strong><small>{o.createdAt?new Date(o.createdAt).toLocaleDateString():'Date unavailable'}</small></td>
               <td><span className={'hh-orders-state '+(o.paymentStatus==='PAID'?'is-paid':'')}>{STATUS_TEXT[o.paymentStatus]}</span></td>
               <td><span className="hh-orders-state">{STATUS_TEXT[o.fulfillmentStatus]}</span></td>
-              <td>{o.itemCount}</td><td>{centsUsd(o.totalCents)}</td>
+              <td>{o.itemCount}</td><td>{o.totalCents===null?'Pending final total':centsUsd(o.totalCents)}</td>
               <td><button type="button" className="hh-orders-review" onClick={()=>setSelected(o.orderId)}>View</button></td></tr>)}</tbody></table></div>}
       </div>
       <aside className="hh-orders-sidebar">
@@ -76,7 +80,7 @@ export default function OrderWorkbench({orders=[],status='unconfigured',notice='
         <button type="button" className="hh-order-close" onClick={()=>setSelected(null)} aria-label="Close order">×</button>
         <span className="hh-orders-eyebrow">VERIFIED ORDER RECORD</span><h3>Order {current.orderId}</h3>
         <p>Payment: {STATUS_TEXT[current.paymentStatus]}. Fulfillment: {STATUS_TEXT[current.fulfillmentStatus]}.</p>
-        <p>{current.createdAt?new Date(current.createdAt).toLocaleString():'No verified created date'} · {centsUsd(current.totalCents)}</p>
+        <p>{current.createdAt?new Date(current.createdAt).toLocaleString():'No verified created date'} · {current.totalCents===null?'Pending final total':centsUsd(current.totalCents)}</p>
         <h4>Items</h4>
         {current.items.length?<ul>{current.items.map((x,i)=><li key={x.sku+'-'+i}>{x.qty} × {x.productName}{x.sku?' · '+x.sku:''}</li>)}</ul>:<p>No line item summary was returned.</p>}
         <p className="hh-orders-readonly">Read-only order view. No fulfillment actions are enabled.</p>

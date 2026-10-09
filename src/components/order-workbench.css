@@ -50,3 +50,8 @@
 .hh-orders button.hh-order-close:hover:not(:disabled){transform:none;box-shadow:none}
 @media(max-width:900px){.hh-orders-body{grid-template-columns:minmax(0,1fr)}.hh-orders-sidebar{border-left:0;border-top:1px solid #e5edf7}.hh-orders-controls{grid-template-columns:1fr 1fr}.hh-orders-controls label:first-child{grid-column:1/-1}}
 @media(max-width:640px){.hh-orders-header{padding:22px 17px}.hh-orders-status{margin:16px 17px 0}.hh-orders-metrics{grid-template-columns:repeat(2,minmax(0,1fr));padding:16px 17px}.hh-orders-main{padding:17px 12px}.hh-orders-controls{grid-template-columns:1fr}.hh-orders-controls label:first-child{grid-column:auto}.hh-order-modal{padding:24px 18px}}
+
+.hh-orders-shipping-policy{margin:12px 26px 0;border:1px solid #d7e5f6;border-radius:11px;background:#f0f6ff;padding:13px 16px}
+.hh-orders-shipping-policy strong{font-size:12px;color:#285a9c}
+.hh-orders-shipping-policy p{font-size:11px;line-height:1.6;color:#527397;margin:5px 0 0}
+@media(max-width:640px){.hh-orders-shipping-policy{margin:12px 17px 0}}
