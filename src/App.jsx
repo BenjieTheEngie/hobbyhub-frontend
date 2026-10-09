@@ -3,10 +3,12 @@ import IntakePanel from "./components/IntakePanel.jsx";
 import {SiteHeader,Storefront,ShoppingCart} from "./components/Storefront.jsx";
 import {publishedCatalog,safeSavedCart,reconcileCart,setCartQuantity} from "./lib/shop.js";
 import {apiProduct,validProduct,uploadImage} from "./lib/intake.js";
-import {archiveConfirmed, inventoryForView, isArchived, normalizeInventoryResponse} from "./lib/inventoryStatus.js";
+import {inventoryForView, isArchived, normalizeInventoryResponse} from "./lib/inventoryStatus.js";
+import {productRoute, countSkuMatches, recordChangedOrRemoved, safeRecordLabel} from "./lib/legacyInventory.js";
 
 const API_BASE_URL = "https://13bdy276e1.execute-api.us-east-2.amazonaws.com";
 const INVENTORY_API_BASE_URL = String(import.meta.env.VITE_INVENTORY_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || API_BASE_URL).replace(/\/$/, "");
+const USE_LEGACY_PRODUCT_ROUTES = !String(import.meta.env.VITE_INVENTORY_API_BASE_URL || "").trim();
 const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
 const COGNITO_REGION = "us-east-2";
 
@@ -23,7 +25,7 @@ export default function HobbyHubFrontend() {
   },[token]);
   const [publicStatus,setPublicStatus] = useState("coming-soon");
   const [publicProducts,setPublicProducts] = useState([]);
-  const [editingSku,setEditingSku] = useState(null),[stockDrafts,setStockDrafts] = useState({}),[imageBusy,setImageBusy] = useState(false);
+  const [editingSku,setEditingSku] = useState(null),[editingProductId,setEditingProductId] = useState(null),[stockDrafts,setStockDrafts] = useState({}),[imageBusy,setImageBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [busySku, setBusySku] = useState("");
   const [inventoryNotice, setInventoryNotice] = useState("");
@@ -73,70 +75,64 @@ export default function HobbyHubFrontend() {
   function removeCartItem(sku){
     setCart(current=>current.filter(item=>item.sku!==sku));
   }
-async function removeProduct(sku) {
-  if (!token) { setMessage("Sign in to manage inventory."); return; }
-  if (!window.confirm("Remove SKU " + sku + " from active inventory? The updated AWS inventory API archives records instead of deleting their history.")) return;
-  setBusySku(sku);
-  setInventoryNotice("Removing SKU " + sku + " from active inventory...");
-  try {
-    const result = await apiProduct("/products/" + encodeURIComponent(sku), token, "DELETE");
-    if (result?.archived === sku) {
-      // The upgraded Lambda has confirmed a persistent soft archive. Hide it immediately.
-      setProducts(current => current.map(p => p.sku === sku ? { ...p, isactive: false, published: false } : p));
-    } else {
-      // Other APIs might DELETE permanently. Do not claim success until a fresh GET confirms removal.
-      const refreshed = normalizeInventoryResponse(await apiProduct("/products", token));
-      if (!archiveConfirmed(result, sku, refreshed)) {
-        throw new Error("The API returned success but the SKU remains active. Confirm the inventory route is deployed.");
-      }
-      setProducts(refreshed);
-    }
-    setCart(current => current.filter(item => item.sku !== sku));
-    if (editingSku === sku) setEditingSku(null);
-    const notice = "SKU " + sku + " was removed from active inventory in AWS. Use View archived to restore a soft-archived item.";
-    setInventoryNotice(notice);
-    setMessage(notice);
-  } catch (e) {
-    const notice = "SKU " + sku + " was NOT removed: " + e.message + " Check that the AWS inventory API supports DELETE /products/{sku}, the admin token is authorized, and inventory writes are enabled.";
-    setInventoryNotice(notice);
-    setMessage(notice);
-  } finally {
-    setBusySku("");
+async function removeProduct(product) {
+  if (!token || busySku) return;
+  const sku=product.sku;
+  const path=productRoute(product,USE_LEGACY_PRODUCT_ROUTES);
+  if(!path) {setInventoryNotice("Cannot identify this AWS record: productId is unavailable.");return;}
+  if(!USE_LEGACY_PRODUCT_ROUTES && countSkuMatches(products,sku)>1) {
+    setInventoryNotice("Cannot archive "+sku+" because multiple records share this SKU.");return;
   }
+  if(USE_LEGACY_PRODUCT_ROUTES) {
+    const warning="Delete ONE AWS record for SKU "+sku+" (ID ends "+safeRecordLabel(product)+")?"+
+      "\\n\\nThe legacy DELETE route may PERMANENTLY DELETE this record, rather than archive it."+
+      "\\n\\nOther records with this SKU will remain. Type DELETE to confirm:";
+    if(window.prompt(warning)!=="DELETE")return;
+  } else if(!window.confirm("Archive "+sku+" in AWS and keep its history?"))return;
+  setBusySku(USE_LEGACY_PRODUCT_ROUTES?product.productId:sku);
+  setInventoryNotice("Submitting request for "+sku+" and verifying the exact record...");
+  try{
+    await apiProduct(path,token,"DELETE");
+    const after=normalizeInventoryResponse(await apiProduct("/products",token));
+    if(!recordChangedOrRemoved(product,after,USE_LEGACY_PRODUCT_ROUTES,!USE_LEGACY_PRODUCT_ROUTES))
+      throw Error("The requested record is still present without a confirmed archive.");
+    setProducts(after);
+    if(!after.some(p=>p.sku===sku && !isArchived(p)))setCart(current=>current.filter(item=>item.sku!==sku));
+    if(editingProductId===product.productId){setEditingSku(null);setEditingProductId(null);}
+    const note=USE_LEGACY_PRODUCT_ROUTES ?
+      "Verified one record deleted for "+sku+". "+countSkuMatches(after,sku)+" matching record(s) remain. This was not a reversible archive." :
+      "Verified "+sku+" archived in AWS.";
+    setInventoryNotice(note);setMessage(note);
+  }catch(e){
+    const note="No removal confirmed for "+sku+": "+e.message;
+    setInventoryNotice(note);setMessage(note);
+  }finally{setBusySku("");}
 }
 async function restoreProduct(product) {
-  if (!token || busySku) return;
-  const sku = product.sku;
-  if (!window.confirm("Restore SKU " + sku + " to active inventory? It will stay unpublished until you edit and publish it.")) return;
+  if(!token || busySku)return;
+  if(USE_LEGACY_PRODUCT_ROUTES){setInventoryNotice("Restore is unavailable on the original AWS API. A deleted record may not be recoverable.");return;}
+  const sku=product.sku;
+  if(countSkuMatches(products,sku)!==1){setInventoryNotice("Duplicate SKU: restoring by SKU is unsafe.");return;}
+  if(!window.confirm("Restore SKU "+sku+" as unpublished?"))return;
   setBusySku(sku);
-  setInventoryNotice("Restoring " + sku + "...");
-  try {
-    const replacement = validProduct({ ...product, isactive: true, published: false });
-    const result = await apiProduct("/products/" + encodeURIComponent(sku), token, "PUT", replacement);
-    if (result?.item?.isactive === true) {
-      setProducts(current => current.map(p => p.sku === sku ? { ...p, isactive: true, published: false } : p));
-    } else {
-      const refreshed = normalizeInventoryResponse(await apiProduct("/products", token));
-      if (!refreshed.some(p => p.sku === sku && !isArchived(p))) throw new Error("Restore was not confirmed by the inventory API.");
-      setProducts(refreshed);
-    }
-    const notice = "SKU " + sku + " restored to active inventory. It remains unpublished until you approve it.";
-    setInventoryNotice(notice);
-    setMessage(notice);
-  } catch (e) {
-    const notice = "Could not restore SKU " + sku + ": " + e.message;
-    setInventoryNotice(notice);
-    setMessage(notice);
-  } finally {
-    setBusySku("");
-  }
+  try{
+    await apiProduct(productRoute(product,false),token,"PUT",validProduct({...product,isactive:true,published:false}));
+    const after=normalizeInventoryResponse(await apiProduct("/products",token));
+    if(!after.some(p=>p.sku===sku && !isArchived(p)))throw Error("AWS did not confirm the restore.");
+    setProducts(after);setInventoryNotice("SKU "+sku+" restored. It remains unpublished.");
+  }catch(e){setInventoryNotice("Could not restore "+sku+": "+e.message);}
+  finally{setBusySku("");}
 }
-async function updateStock(sku,quantity) {
-  if(!token){setMessage("Please sign in first.");return;}
-  const item=products.find(p=>p.sku===sku),qty=Number(quantity);
-  if(!item||!Number.isSafeInteger(qty)||qty<0){setMessage("Enter a nonnegative whole stock quantity.");return;}
-  try{await apiProduct("/products/"+encodeURIComponent(sku),token,"PUT",{...item,quantityOnHand:qty});await loadProducts();setStockDrafts(p=>{const next={...p};delete next[sku];return next;});setMessage("Stock saved in AWS.");}
-  catch(e){setStockDrafts(p=>{const next={...p};delete next[sku];return next;});setMessage("Stock was NOT saved: "+e.message);}
+async function updateStock(product,quantity) {
+  if(USE_LEGACY_PRODUCT_ROUTES){setInventoryNotice("Stock edits are disabled: stock may reside in the separate Inventory table. Use the verified adjustment API when it is integrated.");return;}
+  const sku=product.sku, qty=Number(quantity);
+  if(!token||countSkuMatches(products,sku)!==1||!Number.isSafeInteger(qty)||qty<0){setMessage("Requires a unique SKU and nonnegative whole quantity.");return;}
+  try{
+    await apiProduct(productRoute(product,false),token,"PUT",{...product,quantityOnHand:qty});
+    const after=normalizeInventoryResponse(await apiProduct("/products",token));
+    if(!after.some(p=>p.sku===sku&&p.quantityOnHand===qty))throw Error("Stock value not confirmed after reload.");
+    setProducts(after);setStockDrafts(p=>{const next={...p};delete next[sku];return next;});setMessage("Stock verified in AWS.");
+  }catch(e){setMessage("Stock was NOT verified: "+e.message);}
 }
   const [productForm, setProductForm] = useState({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});
 
@@ -225,9 +221,15 @@ async function updateStock(sku,quantity) {
     try {
       const product=validProduct(productForm);
       if(editingSku && product.sku!==editingSku)throw Error("SKU cannot be changed while editing.");
-      await apiProduct(editingSku?"/products/"+encodeURIComponent(editingSku):"/products",token,editingSku?"PUT":"POST",product);
+      if(!editingSku && products.some(p=>p.sku.toLowerCase()===product.sku.toLowerCase()))throw Error("This SKU already exists. Choose a unique SKU.");
+      const original=editingSku?products.find(p=>USE_LEGACY_PRODUCT_ROUTES?p.productId===editingProductId:p.sku===editingSku):null;
+      if(editingSku && !original)throw Error("Cannot identify the exact record being edited. Reload inventory.");
+      const path=original?productRoute(original,USE_LEGACY_PRODUCT_ROUTES):"/products";
+      if(!path)throw Error("Missing product API identifier.");
+      await apiProduct(path,token,original?"PUT":"POST",product);
       const successMessage=editingSku?"Saved product changes in AWS.":"Created product in AWS.";
       setEditingSku(null);
+      setEditingProductId(null);
       setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});
       await loadProducts();
       await loadDashboard();
@@ -242,7 +244,9 @@ async function updateStock(sku,quantity) {
     finally{setImageBusy(false);}
   }
   function editProduct(item){
+    if(USE_LEGACY_PRODUCT_ROUTES && !item.productId){setInventoryNotice("Cannot edit: productId missing.");return;}
     setEditingSku(item.sku);
+    setEditingProductId(item.productId||null);
     setProductForm(p=>({...p,...item}));
     setMessage("Editing "+item.sku+". Save changes after reviewing the fields.");
     document.getElementById("product-editor")?.scrollIntoView({behavior:"smooth",block:"start"});
@@ -321,22 +325,22 @@ async function updateStock(sku,quantity) {
 
 <section className="rounded-2xl bg-white p-6 shadow">
   <h2 className="text-xl font-semibold">Inventory Management</h2>
-  <p className="muted">Remove SKU archives a product on the upgraded AWS API: it disappears from active inventory and the storefront, while purchase history is retained.</p>
+  <p className="muted">{USE_LEGACY_PRODUCT_ROUTES ? "The original AWS API identifies records by productId. DELETE may permanently delete ONE record, not every item sharing a SKU. Missing stock must be checked separately." : "The upgraded inventory API archives a unique SKU and retains its history."}</p>
   <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
     <button type="button" aria-pressed={!showArchived} onClick={()=>setShowArchived(false)} style={{background:!showArchived?"#173d79":"#e9effa",color:!showArchived?"#fff":"#283f64"}}>
-      Active SKUs ({inventoryForView(products,false).length})
+      {USE_LEGACY_PRODUCT_ROUTES?"AWS records":"Active SKUs"} ({inventoryForView(products,false).length})
     </button>
     <button type="button" aria-pressed={showArchived} onClick={()=>setShowArchived(true)} style={{background:showArchived?"#173d79":"#e9effa",color:showArchived?"#fff":"#283f64"}}>
       View archived ({inventoryForView(products,true).length})
     </button>
   </div>
   {inventoryNotice && <p role="status" aria-live="polite" style={{padding:"10px 12px",borderRadius:8,background:"#eef3ff",color:"#243a64",overflowWrap:"anywhere"}}>{inventoryNotice}</p>}
-  {!String(import.meta.env.VITE_INVENTORY_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "").trim() && <p className="muted">The new inventory API URL is not configured for this frontend deployment. If a SKU cannot be removed, the AWS add-on and its inventory-write setting must be activated first.</p>}
+  {USE_LEGACY_PRODUCT_ROUTES && <p className="muted" role="note">Original AWS API active: deletes are potentially permanent. The new soft-archive API is not yet connected. Do not delete a record until you confirm it is a duplicate.</p>}
   {inventoryForView(products,showArchived).length === 0 && <p className="muted">{showArchived?"No archived SKUs were returned by the API.":"No active SKUs were returned by the API."}</p>}
 
-  {inventoryForView(products,showArchived).map((product) => (
+  {inventoryForView(products,showArchived).map((product,index) => (
     <div
-      key={product.sku}
+      key={product.productId || product.sku+"-"+index}
       style={{
         display: "grid",
         gridTemplateColumns: "2fr 1fr 1fr 1fr",
@@ -348,17 +352,23 @@ async function updateStock(sku,quantity) {
     >
       <div>
         <strong>{product.productName}</strong>
-        <p style={{ fontSize: "12px", color: "#555" }}>{product.sku}</p>
+        <p style={{ fontSize: "12px", color: "#555" }}>SKU {product.sku} {product.productId && <span>· record {safeRecordLabel(product)}</span>}</p>
+        {countSkuMatches(products,product.sku)>1 && <p style={{fontSize:12,fontWeight:700,color:"#9d5b1c"}}>Duplicate SKU — {countSkuMatches(products,product.sku)} distinct records</p>}
+        {product.stockReported!==true && <p style={{fontSize:12,color:"#667992"}}>Stock not reported in Products API</p>}
+        {product.priceInvalid===true && <p style={{fontSize:12,color:"#af2631"}}>Invalid negative sale price</p>}
+        {product.createdAt && <p style={{fontSize:12,color:"#667992"}}>Created: {new Date(product.createdAt).toLocaleString()}</p>}
+        <p style={{fontSize:12,color:"#536780"}}>Stored price: {product.priceInvalid ? String(product.rawSalePrice ?? "invalid") : "$"+Number(product.salePrice).toFixed(2)}</p>
       </div>
 
       <p>{product.category}</p>
 
       <input
         type="number"
-        disabled={isArchived(product) || Boolean(busySku)}
+        disabled={USE_LEGACY_PRODUCT_ROUTES || isArchived(product) || Boolean(busySku) || countSkuMatches(products,product.sku)>1}
         aria-label={"Stock for "+product.sku}
-        value={stockDrafts[product.sku] ?? product.quantityOnHand}
-        onBlur={(e) => {if(!isArchived(product) && String(product.quantityOnHand)!==e.target.value)updateStock(product.sku,e.target.value);}}
+        value={product.stockReported===true ? stockDrafts[product.sku] ?? product.quantityOnHand : ""}
+        placeholder={product.stockReported===true?"":"Unknown"}
+        onBlur={(e) => {if(!USE_LEGACY_PRODUCT_ROUTES && !isArchived(product) && String(product.quantityOnHand)!==e.target.value)updateStock(product,e.target.value);}}
         onChange={(e)=>setStockDrafts(p=>({...p,[product.sku]:e.target.value}))}
         style={{
           padding: "6px",
@@ -367,11 +377,11 @@ async function updateStock(sku,quantity) {
         }}
       />
 
-      <button className="inventory-edit" disabled={isArchived(product) || Boolean(busySku)} onClick={()=>editProduct(product)}>Edit</button>
+      <button className="inventory-edit" disabled={isArchived(product) || Boolean(busySku) || (USE_LEGACY_PRODUCT_ROUTES && !product.productId) || (!USE_LEGACY_PRODUCT_ROUTES && countSkuMatches(products,product.sku)>1)} onClick={()=>editProduct(product)}>Edit</button>
       <button
         type="button"
-        disabled={Boolean(busySku)}
-        onClick={() => isArchived(product) ? restoreProduct(product) : removeProduct(product.sku)}
+        disabled={Boolean(busySku) || (USE_LEGACY_PRODUCT_ROUTES && !product.productId) || (!USE_LEGACY_PRODUCT_ROUTES && countSkuMatches(products,product.sku)>1)}
+        onClick={() => isArchived(product) ? restoreProduct(product) : removeProduct(product)}
         style={{
           background: isArchived(product) ? "#25724d" : "#b42332",
           color: "white",
@@ -381,7 +391,7 @@ async function updateStock(sku,quantity) {
           cursor: "pointer"
         }}
       >
-        {busySku===product.sku ? "Saving..." : isArchived(product) ? "Restore SKU" : "Remove SKU"}
+        {busySku===(USE_LEGACY_PRODUCT_ROUTES?product.productId:product.sku) ? "Working..." : isArchived(product) ? "Restore SKU" : USE_LEGACY_PRODUCT_ROUTES ? "Delete record" : "Archive SKU"}
       </button>
     </div>
   ))}
@@ -398,7 +408,7 @@ async function updateStock(sku,quantity) {
 }} onUpdated={loadProducts}/>} 
         <section className="rounded-2xl bg-white p-6 shadow" id="product-editor">
           <h2 className="text-xl font-semibold">{editingSku?"Edit inventory item":"Add inventory product"}</h2>
-          {editingSku&&<button onClick={()=>{setEditingSku(null);setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});}}>Cancel edit / New product</button>}
+          {editingSku&&<button onClick={()=>{setEditingSku(null);setEditingProductId(null);setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});}}>Cancel edit / New product</button>}
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <input className="rounded-lg border p-3" value={productForm.productName} onChange={(e) => updateProductField("productName", e.target.value)} placeholder="Product Name" />
             <input className="rounded-lg border p-3" value={productForm.sku} onChange={(e) => updateProductField("sku", e.target.value)} placeholder="SKU" />
