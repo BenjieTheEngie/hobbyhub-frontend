@@ -4,6 +4,19 @@
 >
 > **Authoritative source:** GitHub repository `BenjieTheEngie/hobbyhub-frontend`, branch `main`. Do not rely on this document instead of checking current GitHub commits, CI results and actual AWS resources before changes.
 
+## Continuation update — 2026-10-09 (after prior handoff)
+
+**Most recent completed work and verified state:**
+
+- PR **#49**, merged as `9300e1d5`: permanently disables the obsolete SKU-keyed Stripe checkout guard, all corresponding legacy payment, webhook, reconciliation and shipment write handlers, and makes the optional media SAM checkout resources impossible to enable. It **does not** change original Products or Inventory CRUD. All four GitHub CI jobs passed (frontend checks, AWS offline checks, SAM lint and SAM staged builds).
+- PR **#50**, merged as `88b6a6a5`: offline Checkout V2 requires **explicit `status:'ACTIVE'`** as well as publication approval, with regression tests across carrier quotes and checkout. Four GitHub CI workflows passed before merge, following a test-fixture fix.
+- AWS Core read-only re-verification: authenticated principal `arn:aws:iam::349744180170:root` in `us-east-2` (do **not** use for new infrastructure changes). Both original DynamoDB tables ACTIVE, `productId` keys, 7 records each with 7 linked IDs and **301 units**; zero explicit `published:true` in Products; independent AVAILABLE backups and PITR ENABLED. There are **four legacy Node.js 20 Lambdas**, only the original `hobbyhub` CFN stack (besides AWS SAM support stack), and **13 JWT-authorized routes** in API `13bdy276e1`. No extra Stock V2, order, carrier or publication stack/handler was deployed; Cognito group list empty. Original records were only **read**, never mutated.
+- GitHub status for main was good, including the Vercel GitHub check, but team-scoped Vercel connector still returns **403** for `benjietheengies-projects`; domain alias/latest deployment commit **not independently verified**. Vercel team membership lookup returned zero teams.
+- Owner proposes **Friday October 16, 2026** for active sales. Do **not** interpret the date as authorization to turn on payments or publish stock. Detailed limited pilot **go/no-go gates** and an alternative request-to-buy + externally hosted manual invoice model are in [`docs/OCTOBER_16_PILOT_GATES.md`](OCTOBER_16_PILOT_GATES.md). Fully automated site checkout in one week is not safe based on existing state; only a small supervised sales pilot can be considered, after all gates and owner approvals.
+- Old PR #40 was based on a stale checkout branch and was superseded in substance by #50; check whether it remains open before doing new checkout work.
+
+**Next priority:** restore scoped Vercel team access and least-privilege AWS identity, get a clear owner decision on a **manual hosted-invoice pilot versus no paid sales until full automation**, identify a small explicitly approved physical product set and merchant shipping origin/policies. Continue offline code and test hardening without mutating existing stock, deployment or payments.
+
 ## Read this first in a new chat
 
 Continue building Hobby Hub, a U.S.-only e-commerce site for trading-card singles/sealed products, tabletop items, collectibles, and secondhand video games. User wants to keep developing proactively, requesting input only when needed. **Preserve working legacy inventory CRUD and all historical product/inventory data. Keep live payments, automatic publication, AWS stock migrations and shipping-label purchases DISABLED until an independently tested, explicitly authorized launch.** Prefer safe isolated improvements, GitHub feature branches/PRs, tests, and verified deployments.
