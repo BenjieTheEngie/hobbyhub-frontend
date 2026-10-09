@@ -88,6 +88,11 @@ export function buildReservationTransactions(quote,{stockTable,orderTable,orderI
     !Number.isFinite(Date.parse(holdUntil))||Date.parse(holdUntil)<=Date.parse(now))
     throw Error('Valid order identity, table names and reservation expiry required.');
   if(!quote?.items?.length||quote.checkoutReady!==false)throw Error('Verified pre-checkout quote required.');
+  if(quote.shippingMethod!=='domestic_shipping'||quote.shippingCountry!=='US'||
+     quote.pickupAvailable!==false || !['contiguous','alaska','hawaii'].includes(quote.shippingRegion) ||
+     !Number.isSafeInteger(quote.shippingCents)||quote.shippingCents<0||quote.shippingCents>50000 ||
+     quote.taxCents!==null || quote.totalCents!==null)
+    throw Error('Approved U.S. shipping estimate required; tax and charge total must remain pending.');
   const stockWrites=quote.items.map(item=>({
     Update:{
       TableName:stockTable,Key:{productId:item.productId},
@@ -104,8 +109,10 @@ export function buildReservationTransactions(quote,{stockTable,orderTable,orderI
     orderId,checkoutRequestId:quote.requestId,status:'RESERVED',paymentStatus:'PENDING',
     fulfillmentStatus:'UNFULFILLED',items:quote.items.map(({productId,sku,productName,qty,unitPriceCents,lineTotalCents})=>
       ({productId,sku,productName,qty,unitPriceCents,lineTotalCents})),
-    subtotalCents:quote.subtotalCents,totalCents:quote.subtotalCents,
-    shippingCents:null,taxCents:null,currency:'usd',createdAt:now,updatedAt:now,
+    subtotalCents:quote.subtotalCents,totalCents:null,
+    shippingCents:quote.shippingCents,taxCents:null,currency:'usd',createdAt:now,updatedAt:now,
+    shippingCountry:'US',shippingMethod:'domestic_shipping',shippingRegion:quote.shippingRegion,
+    pickupAvailable:false,shippingAddressVerified:false,createdAt:now,updatedAt:now,
     reservedUntil:holdUntil,version:1,
   };
   const put={Put:{TableName:orderTable,Item:order,ConditionExpression:'attribute_not_exists(orderId)'}};
@@ -114,5 +121,7 @@ export function buildReservationTransactions(quote,{stockTable,orderTable,orderI
 }
 export function fulfillmentEligible(order) {
   return Boolean(order&&order.paymentStatus==='PAID'&&order.status==='PAID'&&
-    order.fulfillmentStatus==='UNFULFILLED'&&Array.isArray(order.items)&&order.items.length>0);
+    order.fulfillmentStatus==='UNFULFILLED'&&order.shippingMethod==='domestic_shipping'&&
+    order.shippingCountry==='US'&&order.shippingAddressVerified===true&&
+    order.pickupAvailable!==true&&Array.isArray(order.items)&&order.items.length>0);
 }
