@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Hobby Hub isolated read-only customer order operations foundation (checkout NOT enabled).
+Parameters:
+  CognitoUserPoolId:
+    Type: String
+    Description: Verified existing Cognito user pool in current AWS region.
+  CognitoClientId:
+    Type: String
+    Description: Verified existing Cognito app client ID.
+  FrontendOrigin:
+    Type: String
+    Default: https://hobbyhub.company
+  AdminGroupName:
+    Type: String
+    Default: hobbyhub-admin
+  AllowedAdminSubs:
+    Type: String
+    Default: ''
+Resources:
+  CustomerOrdersV2:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      SSESpecification: {SSEEnabled: true}
+      AttributeDefinitions:
+        - {AttributeName: orderId, AttributeType: S}
+      KeySchema:
+        - {AttributeName: orderId, KeyType: HASH}
+  OrderOpsApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: [!Ref FrontendOrigin]
+        AllowMethods: [GET, OPTIONS]
+        AllowHeaders: [authorization, content-type]
+        MaxAge: 600
+      Auth:
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              audience: [!Ref CognitoClientId]
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
+  OrderOpsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: order-ops.orderOpsHandler
+      Runtime: nodejs22.x
+      Timeout: 20
+      MemorySize: 256
+      Environment:
+        Variables:
+          HOBBYHUB_ORDER_V2_TABLE: !Ref CustomerOrdersV2
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+          HOBBYHUB_ADMIN_GROUP: !Ref AdminGroupName
+          HOBBYHUB_ALLOWED_ADMIN_SUBS: !Ref AllowedAdminSubs
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:Scan]
+              Resource: !GetAtt CustomerOrdersV2.Arn
+      Events:
+        ReadOnlyOrders:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OrderOpsApi
+            Method: GET
+            Path: /ops/orders
+            Auth: {Authorizer: CognitoJwt}
+Outputs:
+  OrderOpsApiBaseUrl:
+    Description: JWT-protected order dashboard API origin. Connect only after staging verification.
+    Value: !Sub 'https://${OrderOpsApi}.execute-api.${AWS::Region}.amazonaws.com'
+  OrderTableName:
+    Description: Retained empty customer-order table to be populated by a FUTURE verified checkout system.
+    Value: !Ref CustomerOrdersV2
