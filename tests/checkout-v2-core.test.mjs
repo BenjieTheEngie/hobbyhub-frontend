@@ -5,9 +5,9 @@ import {quoteDomesticShipping,composePrecheckoutTotals} from '../backend/shippin
 
 const requestId='7cf18d40-0a57-4f45-af9f-fb5d478cf5a0';
 const inventory=[
-  {productId:'product-01',sku:'MTG-SET-001',productName:'Magic sealed booster',published:true,isactive:true,salePrice:5.99},
-  {productId:'product-02',sku:'PKM-BOX-001',productName:'Pokemon trainer box',published:true,isactive:true,salePrice:44},
-  {productId:'product-03',sku:'MTG-SET-001',productName:'Duplicate legacy booster',published:false,salePrice:6},
+  {productId:'product-01',sku:'MTG-SET-001',productName:'Magic sealed booster',published:true,status:'ACTIVE',isactive:true,salePrice:5.99},
+  {productId:'product-02',sku:'PKM-BOX-001',productName:'Pokemon trainer box',published:true,status:'ACTIVE',isactive:true,salePrice:44},
+  {productId:'product-03',sku:'MTG-SET-001',productName:'Duplicate legacy booster',published:false,status:'ACTIVE',salePrice:6},
 ];
 const stock=[
   {productId:'product-01',onHand:9,reserved:2,version:5},
@@ -59,6 +59,24 @@ test('unpublished, missing, insufficient or uninitialized stock always blocks re
   q.productsById.set('product-01',{...inventory[0],published:false});
   assert.throws(()=>verifyCheckoutQuote(intent,q),/unavailable or unpublished/);
 });
+test('inactive, archived, missing-status or unpublished Products cannot reach offline checkout',()=>{
+  const intent=validateCheckoutIntent({requestId,items:[{productId:'product-01',qty:1}]});
+  const original=inventory[0];
+  const forbidden=[
+    {status:'INACTIVE'},{status:'DELETED'},{status:'ARCHIVED'},
+    {status:'active'},{status:null},{status:undefined},
+    {published:false},{isactive:false},{isActive:false}
+  ];
+  for(const variant of forbidden){
+    const state=snapshots({allowDuplicates:true});
+    state.productsById.set(original.productId,{...original,...variant});
+    assert.throws(()=>verifyCheckoutQuote(intent,state),/unavailable or unpublished/);
+  }
+  const ready=snapshots({allowDuplicates:true});
+  assert.equal(verifyCheckoutQuote(intent,ready).subtotalCents,599);
+  assert.equal(verifyCheckoutQuote(intent,ready).checkoutReady,false);
+});
+
 test('reservation plan atomically updates exact productId/version/reserved and saves immutable order data',()=>{
   const quote=shippingEstimate(verifyCheckoutQuote(validateCheckoutIntent(request),snapshots({allowDuplicates:true})));
   const result=buildReservationTransactions(quote,{
