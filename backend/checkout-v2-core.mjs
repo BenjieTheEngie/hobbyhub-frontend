@@ -53,8 +53,10 @@ export function verifyCheckoutQuote(intent,{productsById,stockById,skuCounts}) {
   const lines=[];let subtotalCents=0;const skus=new Set();
   for(const {productId,qty} of intent.items) {
     const product=productsById.get(productId);
+    // Explicit ACTIVE approval is mandatory. A missing/unknown status must not
+    // bypass the same fail-closed rule used by the public catalog and SKU resolver.
     if(!product||product.productId!==productId||product.published!==true||
-       product.isactive===false||product.isActive===false)
+       product.status!=='ACTIVE'||product.isactive===false||product.isActive===false)
       throw Error('Cart contains an unavailable or unpublished product.');
     const sku=String(product.sku||'').trim();
     if(!SKU.test(sku)||skuCounts.get(sku.toLowerCase())!==1||skus.has(sku.toLowerCase()))

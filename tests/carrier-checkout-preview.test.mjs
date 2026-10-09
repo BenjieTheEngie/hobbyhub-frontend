@@ -7,7 +7,7 @@ const reqId='7cf18d40-0a57-4f45-af9f-fb5d478cf5a0';
 const origin={recipient:'Test Merchant',line1:'1 Example Street',city:'Boston',state:'MA',postalCode:'02110',country:'US'};
 const destination={recipient:'Demo Buyer',line1:'10 Test Road',city:'Burlington',state:'VT',postalCode:'05401',country:'US'};
 const packing={lengthIn:10,widthIn:7,heightIn:2,weightOz:7.5};
-const base={productId:'physical-one',sku:'MTG-100',productName:'Sealed Booster',published:true,salePrice:6.5,shippingPackage:packing};
+const base={productId:'physical-one',sku:'MTG-100',productName:'Sealed Booster',published:true,status:'ACTIVE',salePrice:6.5,shippingPackage:packing};
 const resultRate={provider:'easypost',mode:'test',rateOnly:true,labelPurchased:false,
   options:[{provider:'easypost',mode:'test',carrier:'USPS',service:'GroundAdvantage',
     rateId:'rate_abcd123456789',shippingCents:489,currency:'usd',deliveryDays:5},
@@ -56,6 +56,8 @@ test('duplicate SKU, unpublished, insufficient stock and missing packaging block
   const cases=[
     inputs({skuCount:2}),
     inputs({product:{...base,published:false}}),
+    inputs({product:{...base,status:undefined}}),
+    inputs({product:{...base,status:'INACTIVE'}}),
     inputs({stock:{productId:'physical-one',onHand:0,reserved:0,version:3}}),
     inputs({packed:null}),
     inputs({stock:{productId:'physical-one',onHand:5,version:1}}),
