@@ -1,6 +1,6 @@
 # Hobby Hub — project handoff / restart guide
 
- > **Last checked:** 2026-10-09, including merged launch preparation through `767e6be9`. Intended as a durable reference for continuing development in a **new ChatGPT conversation** when the original chat becomes too long.
+> **Last checked:** 2026-10-09, including merged launch preparation through `767e6be9`. Intended as a durable reference for continuing development in a **new ChatGPT conversation** when the original chat becomes too long.
 >
 > **Authoritative source:** GitHub repository `BenjieTheEngie/hobbyhub-frontend`, branch `main`. Do not rely on this document instead of checking current GitHub commits, CI results and actual AWS resources before changes.
 
