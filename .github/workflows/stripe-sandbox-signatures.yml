@@ -1,0 +1,31 @@
+name: Stripe sandbox signature checks (no network payments)
+on:
+  push:
+    branches: [main, 'feature/**']
+    paths:
+      - 'backend/stripe-sandbox-webhook-boundary.mjs'
+      - 'backend/package.json'
+      - 'tests/stripe-sdk-verification.integration.mjs'
+      - '.github/workflows/stripe-sandbox-signatures.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/stripe-sandbox-webhook-boundary.mjs'
+      - 'backend/package.json'
+      - 'tests/stripe-sdk-verification.integration.mjs'
+      - '.github/workflows/stripe-sandbox-signatures.yml'
+permissions:
+  contents: read
+jobs:
+  verify-signatures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install backend dependencies without scripts
+        run: npm install --prefix backend --no-audit --no-fund --ignore-scripts --no-package-lock
+      - name: Exercise official Stripe SDK signature verification entirely offline
+        run: node --test tests/stripe-sdk-verification.integration.mjs
