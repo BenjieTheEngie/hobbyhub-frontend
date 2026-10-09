@@ -4,7 +4,17 @@ Description: Hobby Hub optional media scanning, inventory CRUD and storefront ca
 Parameters:
   ExistingProductsTable:
     Type: String
-    Description: Existing DynamoDB product table name (must be a single string partition key named sku for CRUD).
+    Description: Existing DynamoDB product table name. Confirm the exact primary key and SKU attribute before deploying.
+  ExistingProductsPrimaryKey:
+    Type: String
+    Default: sku
+    AllowedValues: [sku, productId]
+    Description: Existing DynamoDB HASH key; legacy Hobby Hub uses productId (String).
+  ApproveLegacyProductIdSchema:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true','false']
+    Description: Keep OFF until productId-to-SKU mapping and duplicate SKU scan are verified.
   CognitoUserPoolId:
     Type: String
     Description: Existing Cognito User Pool ID in this region.
@@ -248,7 +258,8 @@ Resources:
       Environment:
         Variables:
           HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
-          HOBBYHUB_PRODUCTS_PK_NAME: sku
+          HOBBYHUB_PRODUCTS_PK_NAME: !Ref ExistingProductsPrimaryKey
+          HOBBYHUB_PRODUCTID_SCHEMA_VERIFIED: !Ref ApproveLegacyProductIdSchema
           HOBBYHUB_INVENTORY_WRITES_ENABLED: !Ref EnableInventoryWrites
           HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
           HOBBYHUB_ADMIN_GROUP: !Ref AdminGroupName
@@ -256,7 +267,7 @@ Resources:
       Policies:
         - Statement:
             - Effect: Allow
-              Action: [dynamodb:Scan, dynamodb:GetItem, dynamodb:PutItem, dynamodb:DeleteItem]
+              Action: [dynamodb:Scan, dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem]
               Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
       Events:
         List:
@@ -314,7 +325,8 @@ Resources:
           HOBBYHUB_ORDERS_TABLE: !Ref OrdersTable
           HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
           HOBBYHUB_CHECKOUT_ENABLED: !Ref EnableCheckout
-          HOBBYHUB_PRODUCTS_PK_NAME: sku
+          HOBBYHUB_PRODUCTS_PK_NAME: !Ref ExistingProductsPrimaryKey
+          HOBBYHUB_PRODUCTID_SCHEMA_VERIFIED: !Ref ApproveLegacyProductIdSchema
           HOBBYHUB_INVENTORY_WRITES_ENABLED: !Ref EnableInventoryWrites
           HOBBYHUB_STRIPE_TEST_ONLY: 'true'
           HOBBYHUB_STRIPE_SECRET_ARN: !Ref StripeTestSecretArn
