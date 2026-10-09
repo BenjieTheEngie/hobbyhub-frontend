@@ -52,7 +52,7 @@ export function packagingWorksheetCsv(products) {
     const row={
       productId:id,sku:String(p.sku||''),productName:String(p.productName||''),
       category:String(p.category||''),condition:String(p.condition||''),
-      finish:String(p.finish||''),...measurements,packagingNotes:''
+      finish:String(p.finish||''),...measurements,packagingNotes:String(p.packagingNotes||'')
     };
     rows.push(PACKAGING_COLUMNS.map(k=>quoteCell(row[k])).join(','));
   }
