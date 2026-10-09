@@ -87,10 +87,10 @@ async function handleAdjust(event,productId) {
     await doc.send(new TransactWriteCommand({TransactItems:[
       {Update:{TableName:stockTable(),Key:{productId},
         UpdateExpression:'SET #qty = #qty + :delta, #version = #version + :one, #updated = :now',
-        ConditionExpression:'attribute_exists(productId) AND attribute_exists(#reserved) AND #version = :expected AND #qty >= :minimum AND #qty <= :maximum AND #qty + :delta >= #reserved',
+        ConditionExpression:'attribute_exists(productId) AND attribute_exists(#reserved) AND #version = :expected AND #qty >= :minimum AND #qty <= :maximum AND #reserved <= :next',
         ExpressionAttributeNames:{'#qty':'onHand','#reserved':'reserved','#version':'version','#updated':'updatedAt'},
         ExpressionAttributeValues:{':delta':input.delta,':one':1,':now':now,':expected':input.expectedVersion,
-          ':minimum':Math.max(0,-input.delta),':maximum':MAX_UNITS-Math.max(0,input.delta)}}},
+          ':minimum':Math.max(0,-input.delta),':maximum':MAX_UNITS-Math.max(0,input.delta),':next':finalQty}}},
       {Put:{TableName:auditTable(),Item:audit,ConditionExpression:'attribute_not_exists(requestId)'}}
     ]}));
   }catch(e){
