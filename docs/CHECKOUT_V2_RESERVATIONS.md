@@ -42,3 +42,15 @@ See `docs/US_SHIPPING_AND_FULFILLMENT.md` for U.S.-only shipping and offline pai
 The initial EasyPost sandbox is **read-only/test-mode only**, and its preview quotes are explicitly refused by the reservation planner. See `docs/CARRIER_CALCULATED_SHIPPING.md`.
 
 Stock V2 now models `reserved:0` on new opening balances, enforces physical stock `onHand >= reserved` and shows only unreserved units in the public catalog. This is a prerequisite for transactional reservations but does **not** implement paid reservations, release on payment failure, or payment webhook reconciliation. Keep live payments off.
+
+## Idempotent reservation and expiry — offline transaction plans
+
+`backend/checkout-reservations-v2.mjs` now provides two **pure models**:
+- `buildIdempotentReservationPlan` adds a unique checkout-request ledger in a **third independent DynamoDB table** to the existing conditional stock+order plan. It stores a stable server-verified quote digest and immutable order ID, and refuses duplicate request IDs at transaction time. Do **not** use this in production before implementing secure retrieval, replay reconciliation, and Stripe session reuse.
+- `buildExpiredReservationReleasePlan` models releasing only previously held units when a **real provider-verified unpaid, expired** test checkout has been confirmed. It requires terminal Stripe **test-mode** expiry evidence, a versioned PENDING/RESERVED order past `reservedUntil`, consistent per-product reserved stock, and writes a unique audit record transactionally. A separate future worker must validate the signed provider event from Stripe, fetch current order and balances from AWS, handle races/late payments, and enforce exactly-once release. The current function does **not** verify signatures or run AWS transactions.
+
+**Critical:** These functions return `executable:false`; they are design/test artifacts, not callable Lambda handlers, and they do not implement payment collection, webhooks, customer-facing rate sessions, refunds, delivery labels or real stock locks. No additional DynamoDB table has been deployed for the ledger. Never use a test carrier shipping quote to authorize a charge or reservation. Keep all live checkout and stock-mutation flags disabled.
+
+An expired unpaid order is represented in the read-only operations panel as **EXPIRED / CANCELLED / Not charged**, never as PAID or a calculated purchase total.
+
+Test locally with `node --test tests/checkout-reservations-v2.test.mjs tests/order-workbench.test.mjs`.
