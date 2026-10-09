@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {productIdentity,productRoute,countSkuMatches,recordChangedOrRemoved,safeRecordLabel} from '../src/lib/legacyInventory.js';
+import {productIdentity,productRoute,countSkuMatches,recordChangedOrRemoved,exactLegacyDeletionConfirmed,safeRecordLabel} from '../src/lib/legacyInventory.js';
 import {normalizeInventoryResponse} from '../src/lib/inventoryStatus.js';
 
 const duplicates=[
@@ -43,4 +43,30 @@ test('existing real stock is flagged as reported and productId is preserved',()=
   assert.equal(result[0].stockReported,true);
   assert.equal(result[0].productId,'record-001');
   assert.equal(safeRecordLabel(result[0]),'…rd-001');
+});
+
+test('exact deletion verification confirms one targeted legacy productId and keeps nine duplicates',()=>{
+  const before=Array.from({length:10},(_,i)=>({productId:'id-'+i,sku:'MTG-001'}));
+  const after=before.filter(x=>x.productId!=='id-7');
+  assert.equal(exactLegacyDeletionConfirmed(before[7],before,after),true);
+  assert.equal(after.filter(x=>x.sku==='MTG-001').length,9);
+});
+test('exact deletion verification rejects stale results, empty list and deleting the wrong ID',()=>{
+  const before=[{productId:'id-A',sku:'MTG-001'},{productId:'id-B',sku:'MTG-001'}];
+  assert.equal(exactLegacyDeletionConfirmed(before[0],before,before),false);
+  assert.equal(exactLegacyDeletionConfirmed(before[0],before,[before[0]]),false);
+  assert.equal(exactLegacyDeletionConfirmed(before[0],before,[]),false);
+  assert.equal(exactLegacyDeletionConfirmed(before[0],before,[{sku:'MTG-001'}]),false);
+});
+test('exact deletion verification refuses unexpected bulk loss or changed product identities',()=>{
+  const before=[
+    {productId:'id-A',sku:'MTG-001'},
+    {productId:'id-B',sku:'MTG-001'},
+    {productId:'id-C',sku:'MTG-001'}
+  ];
+  assert.equal(exactLegacyDeletionConfirmed(before[0],before,[before[2]]),false);
+  assert.equal(exactLegacyDeletionConfirmed(before[0],before,[before[1],{productId:'new-D',sku:'MTG-001'}]),false);
+  assert.equal(exactLegacyDeletionConfirmed(before[0],before,[before[1],before[1]]),false);
+  assert.equal(exactLegacyDeletionConfirmed(before[0],[before[0],before[0]],[before[0]]),false);
+  assert.equal(exactLegacyDeletionConfirmed({sku:'MTG-001'},before,[before[1],before[2]]),false);
 });
