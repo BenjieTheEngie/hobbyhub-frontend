@@ -6,7 +6,7 @@ import './inventory-workspace.css';
 
 const issueLabels={
   'duplicate-sku':'Duplicate SKU','unknown-stock':'Stock unknown',
-  'invalid-price':'Price issue','missing-sku':'Missing SKU',
+  'invalid-price':'Invalid price','zero-price':'Zero price','missing-sku':'Missing SKU',
   'missing-name':'Missing name','missing-identity':'ID missing',
 };
 function downloadAudit(records) {
@@ -52,7 +52,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
     }
     return [...grouped.values()].sort((a,b)=>b.count-a.count).slice(0,6);
   },[products,counts]);
-  function openRecord(p,index) {setSelected(recordKey(p,index));}
+  function openRecord(p) {setSelected(recordKey(p,products.indexOf(p)));}
   function startAuditExport() {
     downloadAudit(visible);
     setExportMessage('Downloaded '+visible.length+' matching records. Nothing was changed in AWS.');
@@ -114,7 +114,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
         {exportMessage&&<p className="inv-feedback" role="status">{exportMessage}</p>}
         <div className="inv-table-scroll">
           <table className="inv-table"><thead><tr><th>PRODUCT / RECORD</th><th>CATEGORY</th><th>PRICE</th><th>STOCK</th><th>QUALITY</th><th aria-label="Actions"/></tr></thead>
-            <tbody>{rows.map((p,index)=>{
+            <tbody>{rows.map((p)=>{
               const issues=productIssues(p,counts);
               const key=recordKey(p,products.indexOf(p));
               const archived=isArchived(p);
@@ -124,7 +124,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
                 <td><strong className={p.priceInvalid?'inv-bad-price':''}>{p.priceInvalid?'Review: '+String(p.rawSalePrice??p.salePrice):money(p.salePrice)}</strong></td>
                 <td>{p.stockReported===true?<b className="inv-stock">{p.quantityOnHand}</b>:<span className="inv-muted-status">Not reported</span>}</td>
                 <td><div className="inv-issue-stack">{archived&&<span className="inv-chip inv-chip-neutral">Archived</span>}{issues.slice(0,2).map(issue=><span key={issue} className={'inv-chip '+(issue==='duplicate-sku'||issue==='invalid-price'?'inv-chip-danger':'inv-chip-warn')}>{issueLabels[issue]}</span>)}{issues.length>2&&<small>+{issues.length-2} more</small>}{!issues.length&&!archived&&<span className="inv-chip inv-chip-ok">No flagged issues</span>}</div></td>
-                <td><div className="inv-cell-actions"><button type="button" className="inv-button inv-button-light" onClick={()=>openRecord(p,index)}>Review</button></div></td>
+                <td><div className="inv-cell-actions"><button type="button" className="inv-button inv-button-light" onClick={()=>openRecord(p)}>Review</button></div></td>
               </tr>;
             })}</tbody></table>
           {rows.length===0&&<div className="inv-empty"><span aria-hidden="true">◇</span><h3>{products.length?'No records match these filters':'No inventory records loaded'}</h3><p>{products.length?'Adjust the search or open another workspace.':'Sign in, then choose Refresh records to retrieve the current AWS products.'}</p><button type="button" className="inv-button inv-button-light" onClick={products.length?resetFilters:onReload}>{products.length?'Reset filters':'Load records'}</button></div>}
