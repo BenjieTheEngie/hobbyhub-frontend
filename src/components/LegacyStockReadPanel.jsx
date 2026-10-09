@@ -1,6 +1,7 @@
 import React,{useMemo,useState} from 'react';
 import {fetchLegacyStockReadOnly} from '../lib/legacyStockReadClient.js';
 import {joinLegacyReadOnlyStock,legacyStockSummary} from '../../backend/legacy-stock-read-logic.mjs';
+import './legacy-stock-read.css';
 
 /**
  * Safe optional snapshot of the ORIGINAL inventory source. Separate from
