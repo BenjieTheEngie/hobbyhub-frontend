@@ -8,19 +8,19 @@ const products=[
   {sku:'PKM-001',productName:'Trainer Box',category:'Pokémon',salePrice:30,quantityOnHand:1},
 ];
 
-test('catalog accepts published-only API rows without the published flag',()=>{
+test('catalog requires explicit verified publication state',()=>{
   const loaded=publishedCatalog({items:[
     {...products[0]}, {...products[1],published:true},
     {...products[0],sku:'hidden',published:false},
     {...products[0],sku:'archived',isactive:false},
   ]});
-  assert.equal(loaded.length,2);
-  assert.deepEqual(loaded.map(p=>p.sku),['MTG-MH3-123-N','PKM-001']);
+  assert.equal(loaded.length,1);
+  assert.deepEqual(loaded.map(p=>p.sku),['PKM-001']);
 });
 test('catalog rejects malformed response, bad prices and unsafe image URLs',()=>{
   assert.throws(()=>publishedCatalog({message:'Not configured'}),/invalid product list/);
   assert.equal(publishedCatalog([{...products[0],salePrice:-2}]).length,0);
-  assert.equal(publishedCatalog([{...products[0],imageUrl:'javascript:alert(1)'}])[0].imageUrl,'');
+  assert.equal(publishedCatalog([{...products[0],published:true,imageUrl:'javascript:alert(1)'}])[0].imageUrl,'');
 });
 test('search, categories and price sort all filter independently',()=>{
   const arr=[products[0],products[1]];
