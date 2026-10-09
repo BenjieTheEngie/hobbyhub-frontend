@@ -2,7 +2,7 @@
  * Browser-only admin order view. Order states are read from AWS, never guessed
  * from cart contents, inventory balances or local browser storage.
  */
-export const PAYMENT_STATES=Object.freeze(['PENDING','PAID','REFUND_PENDING','REFUNDED','DISPUTED']);
+export const PAYMENT_STATES=Object.freeze(['PENDING','PAID','REFUND_PENDING','REFUNDED','DISPUTED','EXPIRED']);
 export const FULFILLMENT_STATES=Object.freeze(['UNFULFILLED','PICKING','PACKED','SHIPPED','DELIVERED','CANCELLED']);
 
 const acceptedCurrency=new Set(['usd']);
@@ -22,8 +22,9 @@ export function normalizeOrderList(data) {
       throw Error('Order service returned an invalid or duplicate order ID.');
     ids.add(orderId);
     const amount=raw.totalCents;
-    const pendingCharge=amount===null && raw.paymentStatus==='PENDING' && raw.status==='RESERVED';
-    if(!pendingCharge && (!Number.isSafeInteger(amount)||amount<0||amount>1000000000))
+    const uncharged=amount===null && ((raw.paymentStatus==='PENDING' && raw.status==='RESERVED') ||
+      (raw.paymentStatus==='EXPIRED' && raw.status==='EXPIRED' && raw.fulfillmentStatus==='CANCELLED'));
+    if(!uncharged && (!Number.isSafeInteger(amount)||amount<0||amount>1000000000))
       throw Error('Order service returned an invalid amount.');
     if(!acceptedCurrency.has(String(raw.currency||'usd').toLowerCase()))
       throw Error('Order service returned an unsupported currency.');
@@ -70,6 +71,12 @@ export function selectOrders(orders,{query='',status='all',sort='newest'}={}) {
 export function centsUsd(amount) {
   if(!Number.isSafeInteger(amount)||amount<0)return 'Amount unavailable';
   return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(amount/100);
+}
+export function orderTotalLabel(order) {
+  if(order?.totalCents===null){
+    return order.paymentStatus==='EXPIRED'?'Not charged (expired)':'Pending final total';
+  }
+  return centsUsd(order?.totalCents);
 }
 export async function loadOrderOps(base,token) {
   if(typeof base!=='string'||!/^https:\/\//i.test(base))throw Error('Order operations API is not configured.');
