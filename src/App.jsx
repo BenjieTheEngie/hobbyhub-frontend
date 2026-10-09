@@ -9,7 +9,7 @@ import {publishedCatalog,safeSavedCart,reconcileCart,setCartQuantity,safeSavedWi
 import {apiProduct,validProduct,uploadImage} from "./lib/intake.js";
 import {inventoryForView, isArchived, normalizeInventoryResponse} from "./lib/inventoryStatus.js";
 import {productRoute, countSkuMatches, recordChangedOrRemoved, exactLegacyDeletionConfirmed, safeRecordLabel} from "./lib/legacyInventory.js";
-import {stockRequest,normalizeStockResponse,mergeVerifiedStock,canEditStock,computeNewStock,verifiedAdjustmentReply} from "./lib/stockV2Client.js";
+import {stockRequest,normalizeStockResponse,mergeVerifiedStock,canEditStock,computeNewStock,ensureAdjustedStockAvailable,verifiedAdjustmentReply} from "./lib/stockV2Client.js";
 
 const API_BASE_URL = "https://13bdy276e1.execute-api.us-east-2.amazonaws.com";
 const INVENTORY_API_BASE_URL = String(import.meta.env.VITE_INVENTORY_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || API_BASE_URL).replace(/\/$/, "");
@@ -280,7 +280,7 @@ async function updateStock(product,quantity) {
   }
   async function changeVerifiedStock(product,{delta,reason,note=""}){
     if(!ALLOW_STOCK_WRITES||!canEditStock(product,stockStatus)||!STOCK_V2_API_BASE_URL)throw Error("Stock writes are disabled until the new API is approved.");
-    const after=computeNewStock(product.quantityOnHand,delta);
+    const after=ensureAdjustedStockAvailable(product,delta);
     const requestId=window.crypto.randomUUID();
     setStockBusyId(product.productId);
     try{

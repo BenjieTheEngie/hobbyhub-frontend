@@ -27,8 +27,8 @@ async function allStock() {
   const rows=[];let key,pages=0;
   do {
     const r=await doc.send(new ScanCommand({TableName:stockTable(),ConsistentRead:true,Limit:100,
-      ExclusiveStartKey:key,ProjectionExpression:'#id,#qty,#reorder,#v,#updated',
-      ExpressionAttributeNames:{'#id':'productId','#qty':'onHand','#reorder':'reorderPoint','#v':'version','#updated':'updatedAt'}}));
+      ExclusiveStartKey:key,ProjectionExpression:'#id,#qty,#reserved,#reorder,#v,#updated',
+      ExpressionAttributeNames:{'#id':'productId','#qty':'onHand','#reserved':'reserved','#reorder':'reorderPoint','#v':'version','#updated':'updatedAt'}}));
     rows.push(...(r.Items||[]));key=r.LastEvaluatedKey;pages++;
   }while(key && pages<maxPages);
   if(key)throw Error('STOCK_SCAN_LIMIT');
@@ -50,7 +50,7 @@ async function handleInitialize(event,productId) {
   }
   if(!await verifiedProductExists(productId))return reply(404,{message:'Product ID does not exist in the original Products table.'});
   const now=new Date().toISOString();
-  const row={productId,onHand:input.onHand,reorderPoint:input.reorderPoint,version:1,updatedAt:now};
+  const row={productId,onHand:input.onHand,reserved:0,reorderPoint:input.reorderPoint,version:1,updatedAt:now};
   const audit={requestId:input.requestId,productId,operation:'initialize',onHand:input.onHand,
     reorderPoint:input.reorderPoint,reason:input.reason,note:input.note,beforeOnHand:null,afterOnHand:input.onHand,
     actor:identityOf(event),createdAt:now};
@@ -78,7 +78,7 @@ async function handleAdjust(event,productId) {
   if(!before)return reply(409,{message:'Stock balance is not initialized. Verify and initialize this product before adjusting.'});
   if(before.version!==input.expectedVersion)return reply(409,{message:'The stock count has changed. Reload and review the latest balance.'});
   const finalQty=before.quantityOnHand+input.delta;
-  if(!Number.isSafeInteger(finalQty)||finalQty<0||finalQty>MAX_UNITS)return reply(422,{message:'Adjustment would put stock outside allowed nonnegative quantity limits.'});
+  if(!Number.isSafeInteger(finalQty)||finalQty<before.reserved||finalQty>MAX_UNITS)return reply(422,{message:'Adjustment would reduce on-hand stock below reserved units or exceed allowed limits.'});
   const now=new Date().toISOString();
   const audit={requestId:input.requestId,productId,operation:'adjust',delta:input.delta,
     expectedVersion:input.expectedVersion,beforeOnHand:before.quantityOnHand,afterOnHand:finalQty,
@@ -87,10 +87,10 @@ async function handleAdjust(event,productId) {
     await doc.send(new TransactWriteCommand({TransactItems:[
       {Update:{TableName:stockTable(),Key:{productId},
         UpdateExpression:'SET #qty = #qty + :delta, #version = #version + :one, #updated = :now',
-        ConditionExpression:'attribute_exists(productId) AND #version = :expected AND #qty >= :minimum AND #qty <= :maximum',
-        ExpressionAttributeNames:{'#qty':'onHand','#version':'version','#updated':'updatedAt'},
+        ConditionExpression:'attribute_exists(productId) AND attribute_exists(#reserved) AND #version = :expected AND #qty >= :minimum AND #qty <= :maximum AND #reserved <= :next',
+        ExpressionAttributeNames:{'#qty':'onHand','#reserved':'reserved','#version':'version','#updated':'updatedAt'},
         ExpressionAttributeValues:{':delta':input.delta,':one':1,':now':now,':expected':input.expectedVersion,
-          ':minimum':Math.max(0,-input.delta),':maximum':MAX_UNITS-Math.max(0,input.delta)}}},
+          ':minimum':Math.max(0,-input.delta),':maximum':MAX_UNITS-Math.max(0,input.delta),':next':finalQty}}},
       {Put:{TableName:auditTable(),Item:audit,ConditionExpression:'attribute_not_exists(requestId)'}}
     ]}));
   }catch(e){

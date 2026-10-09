@@ -32,8 +32,8 @@ export async function catalogV2Handler(event) {
         '#published':'published','#active':'isactive','#oldActive':'isActive','#image':'imageUrl',
         '#set':'setCode','#collector':'collectorNumber','#condition':'condition','#finish':'finish','#lang':'language'
       }),
-      scanBounded(stockTable,'#id,#qty,#reorder,#version,#updated',{
-        '#id':'productId','#qty':'onHand','#reorder':'reorderPoint','#version':'version','#updated':'updatedAt'
+      scanBounded(stockTable,'#id,#qty,#reserved,#reorder,#version,#updated',{
+        '#id':'productId','#qty':'onHand','#reserved':'reserved','#reorder':'reorderPoint','#version':'version','#updated':'updatedAt'
       })
     ]);
     const items=joinedPublicCatalog(products,rawStocks.map(stockBalance).filter(Boolean));

@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {canEditStock,computeNewStock} from '../lib/stockV2Client.js';
+import {canEditStock,ensureAdjustedStockAvailable} from '../lib/stockV2Client.js';
 
 const ADJUST_REASONS=[
   ['restock','New stock / restock'],
@@ -27,7 +27,7 @@ export default function StockControls({product,status='unconfigured',busy=false,
       const absolute=Number(amount);
       if(!Number.isSafeInteger(absolute)||absolute<1)throw Error('Enter a positive whole number of units.');
       const delta=(direction==='remove'?-1:1)*absolute;
-      const next=computeNewStock(product.quantityOnHand,delta);
+      const next=ensureAdjustedStockAvailable(product,delta);
       if(!window.confirm('Update the exact AWS stock record for '+product.sku+' ('+product.productId+') from '+product.quantityOnHand+' to '+next+'?'))return;
       await onAdjust(product,{delta,reason,note});
       setNotice('Stock update confirmed in AWS. Refreshed quantity: '+next);
@@ -62,7 +62,7 @@ export default function StockControls({product,status='unconfigured',busy=false,
     </div>}
     {hasStock&&<form onSubmit={submitAdjustment}>
       {!allowAdjust&&<p role="status">Stock is available to view; adjustments remain locked until backend verification and approval.</p>}
-      <div className="hh-stock-balance"><span>Verified on hand</span><strong>{product.quantityOnHand}</strong><small>Version {product.stockVersion} · Reorder at {product.reorderPoint}</small></div>
+      <div className="hh-stock-balance"><span>On hand</span><strong>{product.quantityOnHand}</strong><small>Reserved: {product.stockReserved} · Available: {product.stockAvailable} · Version {product.stockVersion} · Reorder at {product.reorderPoint}</small></div>
       <div className="hh-stock-inputs">
         <label>Action<select value={direction} onChange={e=>{setDirection(e.target.value);setReason(e.target.value==='remove'?'correction':'restock');}}><option value="add">Add stock</option><option value="remove">Remove stock</option></select></label>
         <label>Units<input type="number" min="1" max="100000" step="1" value={amount} onChange={e=>setAmount(e.target.value)}/></label>

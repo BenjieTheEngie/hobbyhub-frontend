@@ -40,3 +40,5 @@ No new environment variables were enabled; no AWS resources, payment secrets or 
 See `docs/US_SHIPPING_AND_FULFILLMENT.md` for U.S.-only shipping and offline paid-only fulfillment guards.
 
 The initial EasyPost sandbox is **read-only/test-mode only**, and its preview quotes are explicitly refused by the reservation planner. See `docs/CARRIER_CALCULATED_SHIPPING.md`.
+
+Stock V2 now models `reserved:0` on new opening balances, enforces physical stock `onHand >= reserved` and shows only unreserved units in the public catalog. This is a prerequisite for transactional reservations but does **not** implement paid reservations, release on payment failure, or payment webhook reconciliation. Keep live payments off.

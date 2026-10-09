@@ -48,9 +48,12 @@ export function stockBalance(item) {
   try {
     validProductId(item.productId);
     nonnegativeWhole(item.onHand);
+    nonnegativeWhole(item.reserved,'Reserved units');
+    if(item.reserved>item.onHand)return null;
     nonnegativeWhole(item.reorderPoint,'Reorder point');
     if(!Number.isSafeInteger(item.version)||item.version<1)return null;
-    return {productId:item.productId,quantityOnHand:item.onHand,reorderPoint:item.reorderPoint,
+    return {productId:item.productId,quantityOnHand:item.onHand,reserved:item.reserved,
+      quantityAvailable:item.onHand-item.reserved,reorderPoint:item.reorderPoint,
       version:item.version,updatedAt:typeof item.updatedAt==='string'?item.updatedAt:null};
   }catch{return null;}
 }
@@ -64,10 +67,12 @@ export function safePublicProduct(product,stock) {
   const sku=String(product.sku||'').trim(), name=String(product.productName||product.name||'').trim();
   const price=Number(product.salePrice);
   if(!sku||!name||!Number.isFinite(price)||price<=0 || typeof product.productId!=='string'||product.productId!==stock.productId)return null;
-  if(!Number.isSafeInteger(stock.quantityOnHand)||stock.quantityOnHand<1)return null;
+  if(!Number.isSafeInteger(stock.quantityOnHand)||!Number.isSafeInteger(stock.reserved)||
+     stock.reserved<0||stock.reserved>stock.quantityOnHand||
+     stock.quantityOnHand-stock.reserved<1)return null;
   const url=typeof product.imageUrl==='string' && /^https:\/\//i.test(product.imageUrl)?product.imageUrl:'';
   return {sku,productName:name,published:true,isactive:true,category:product.category||'Accessories',salePrice:price,
-    quantityOnHand:stock.quantityOnHand,imageUrl:url,setCode:product.setCode||'',collectorNumber:product.collectorNumber||'',
+    quantityOnHand:stock.quantityOnHand-stock.reserved,imageUrl:url,setCode:product.setCode||'',collectorNumber:product.collectorNumber||'',
     condition:product.condition||'',finish:product.finish||'',language:product.language||''};
 }
 export function joinedPublicCatalog(products,balances) {

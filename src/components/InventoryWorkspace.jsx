@@ -164,7 +164,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
                 <td><div className="inv-product-cell"><ProductInitial product={p}/><div><strong>{p.productName||'Unnamed record'}</strong><small>SKU: {p.sku||'Missing'} · {p.productId?safeRecordLabel(p):'ID unverified'}</small><small>{p.createdAt?'Created '+p.createdAt.slice(0,10):'Date not reported'}</small></div></div></td>
                 <td><span className="inv-cell-category">{p.category||'Uncategorized'}</span></td>
                 <td><strong className={p.priceInvalid?'inv-bad-price':''}>{p.priceInvalid?'Review: '+String(p.rawSalePrice??p.salePrice):money(p.salePrice)}</strong></td>
-                <td>{p.stockReported===true?<div><b className="inv-stock">{p.quantityOnHand}</b>{p.reorderPoint>0&&p.quantityOnHand<=p.reorderPoint&&<small className="inv-stock-low">Low · reorder at {p.reorderPoint}</small>}</div>:<span className="inv-muted-status">Not verified</span>}</td>
+                <td>{p.stockReported===true?<div><b className="inv-stock">{p.stockAvailable} available</b>{p.reorderPoint>0&&p.stockAvailable<=p.reorderPoint&&<small className="inv-stock-low">Low · reorder at {p.reorderPoint}</small>}</div>:<span className="inv-muted-status">Not verified</span>}</td>
                 <td><div className="inv-issue-stack">{archived&&<span className="inv-chip inv-chip-neutral">Archived</span>}{issues.slice(0,2).map(issue=><span key={issue} className={'inv-chip '+(issue==='duplicate-sku'||issue==='invalid-price'?'inv-chip-danger':'inv-chip-warn')}>{issueLabels[issue]}</span>)}{issues.length>2&&<small>+{issues.length-2} more</small>}{!issues.length&&!archived&&<span className="inv-chip inv-chip-ok">No flagged issues</span>}</div></td>
                 <td><div className="inv-cell-actions"><button type="button" className="inv-button inv-button-light" onClick={()=>openRecord(p)}>{isLegacy?"Review / remove":"Review"}</button></div></td>
               </tr>;
@@ -187,7 +187,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
           <div><dt>Record identity</dt><dd>{selectedRecord.productId?safeRecordLabel(selectedRecord):'Unavailable'}</dd></div>
           <div><dt>Category</dt><dd>{selectedRecord.category||'Missing'}</dd></div>
           <div><dt>Stored price</dt><dd>{selectedRecord.priceInvalid?String(selectedRecord.rawSalePrice??'Invalid'):money(selectedRecord.salePrice)}</dd></div>
-          <div><dt>Stock status</dt><dd>{selectedRecord.stockReported===true?String(selectedRecord.quantityOnHand):'Unknown — check Inventory table'}</dd></div>
+          <div><dt>Stock status</dt><dd>{selectedRecord.stockReported===true?String(selectedRecord.stockAvailable)+' available ('+String(selectedRecord.stockReserved)+' reserved; '+String(selectedRecord.quantityOnHand)+' on hand)':'Unknown — check Inventory table'}</dd></div>
           <div><dt>Publication</dt><dd>{selectedRecord.publicationKnown===false?'Unknown (legacy record)':selectedRecord.published?'Published':'Not published'}</dd></div>
           <div><dt>Archive status</dt><dd>{selectedRecord.activeStatusKnown===false?'Unverified (legacy record)':isArchived(selectedRecord)?'Archived':'Active'}</dd></div>
           <div><dt>Created</dt><dd>{selectedRecord.createdAt||'Unknown'}</dd></div>
