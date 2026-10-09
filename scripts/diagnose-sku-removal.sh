@@ -107,26 +107,53 @@ attrs=d.get("AttributeDefinitions") or []
 sys.exit(0 if len(keys)==1 and keys[0].get("AttributeName")=="productId" and keys[0].get("KeyType")=="HASH" and any(a.get("AttributeName")=="productId" and a.get("AttributeType")=="S" for a in attrs) else 1)
 '; then
     echo "Detected productId String primary key. Looking for the exact SKU as an attribute."
-    # Strong consistent, limited read. No full product content or credentials.
+    # Strong consistent, bounded read. Never export unredacted product IDs,
+    # supplier information, email, payment data or other unrelated attributes.
     aws dynamodb scan \
       --table-name "$TABLE" \
       --consistent-read \
       --max-items 250 \
       --filter-expression '#s = :wanted' \
-      --projection-expression '#id,#s,#a,#p' \
-      --expression-attribute-names '{"#id":"productId","#s":"sku","#a":"isactive","#p":"published"}' \
+      --projection-expression '#id,#s,#a,#oldActive,#p,#name,#legacyName,#cat,#qty,#price,#created,#updated,#set,#collector,#cond,#finish' \
+      --expression-attribute-names '{"#id":"productId","#s":"sku","#a":"isactive","#oldActive":"isActive","#p":"published","#name":"productName","#legacyName":"name","#cat":"category","#qty":"quantityOnHand","#price":"salePrice","#created":"createdAt","#updated":"updatedAt","#set":"setCode","#collector":"collectorNumber","#cond":"condition","#finish":"finish"}' \
       --expression-attribute-values '{":wanted":{"S":"MTG-001"}}' \
       --output json | python3 -c '
-import json,sys
+import json,sys,hashlib
 d=json.load(sys.stdin)
 rows=d.get("Items",[])
-print("Exact SKU MTG-001 match count:",len(rows))
-for row in rows[:5]:
-    get=lambda key: row.get(key,{}).get("S")
-    flag=lambda key: row.get(key,{}).get("BOOL","absent")
-    print(json.dumps({"sku":get("sku"),"productIdPresent":bool(get("productId")),"isactive":flag("isactive"),"published":flag("published")}))
-if d.get("NextToken"):
-    print("Warning: scan result truncated. Do not assume the SKU is unique.")
+incomplete=bool(d.get("NextToken"))
+print("Exact SKU MTG-001 match count:",len(rows), "(incomplete scan)" if incomplete else "(complete bounded scan)")
+print("Distinct productId records:", len({r.get("productId",{}).get("S") for r in rows if r.get("productId",{}).get("S")}))
+print("Read-only preview: product IDs are replaced with one-way fingerprints.")
+def value(row,key):
+    v=row.get(key,{})
+    for kind in ("S","N","BOOL"):
+        if kind in v:return v[kind]
+    return "absent"
+for i,row in enumerate(rows[:30],1):
+    id_value=str(value(row,"productId"))
+    entry={
+        "row":i,
+        "productIdFingerprint":hashlib.sha256(id_value.encode()).hexdigest()[:10] if id_value!="absent" else "missing",
+        "productName":value(row,"productName"),
+        "name":value(row,"name"),
+        "category":value(row,"category"),
+        "stock":value(row,"quantityOnHand"),
+        "salePrice":value(row,"salePrice"),
+        "setCode":value(row,"setCode"),
+        "collectorNumber":value(row,"collectorNumber"),
+        "condition":value(row,"condition"),
+        "finish":value(row,"finish"),
+        "isactive":value(row,"isactive"),
+        "isActive":value(row,"isActive"),
+        "published":value(row,"published"),
+        "createdAt":value(row,"createdAt"),
+        "updatedAt":value(row,"updatedAt"),
+    }
+    print(json.dumps(entry,ensure_ascii=False))
+if len(rows)>30:print("Additional matching records omitted from display.")
+if len(rows)>1:print("STOP: Duplicate SKU records exist. No SKU-only delete/archive is safe until you choose specific productId records.")
+if incomplete:print("WARNING: Scan truncated. The actual number of matching rows may be greater; do not assume uniqueness.")
 ' || echo "ProductId scan unavailable; verify DynamoDB read permissions."
   else
     echo "Unsupported key schema. No SKU lookup attempted; send the table schema for review."
