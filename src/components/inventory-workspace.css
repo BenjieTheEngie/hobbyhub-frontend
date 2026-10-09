@@ -106,3 +106,15 @@
 @media(max-width:1000px){.inv-body{grid-template-columns:175px minmax(0,1fr)}.inv-side{padding-left:8px;padding-right:8px}.inv-main{padding:18px 15px}.inv-toolbar{grid-template-columns:1fr 1fr}.inv-toolbar .inv-search{grid-column:1/-1}}
 @media(max-width:750px){.inv-heading{padding:24px 17px}.inv-banner{margin:17px 17px 0;padding:13px}.inv-banner-tag{display:none}.inv-stats{grid-template-columns:repeat(2,minmax(0,1fr));padding:17px;gap:9px}.inv-stat{padding:13px;min-height:106px}.inv-stat strong{font-size:26px}.inv-body{grid-template-columns:minmax(0,1fr)}.inv-side{border-right:0;border-bottom:1px solid #e2eaf4;padding:12px;display:flex;align-items:center;flex-wrap:wrap;gap:5px}.inv-side-title,.inv-side-divider,.inv-help-box,.inv-sidebar-empty,.inv-duplicate-link{display:none!important}.inv-workspace .inv-view{width:auto;flex:1 1 auto;min-width:95px;padding:9px 10px;margin:0;font-size:11px}.inv-main{padding:17px 12px}.inv-heading-actions{width:100%}.inv-heading-actions button{flex:1}.inv-dialog{padding:25px 18px}.inv-detail-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:430px){.inv-toolbar{grid-template-columns:1fr}.inv-toolbar .inv-search{grid-column:auto}.inv-results-header>div{width:100%;justify-content:space-between}.inv-detail-grid{grid-template-columns:1fr}.inv-workspace .inv-view{flex:1 0 calc(50% - 7px)}}
+
+/* Guarded legacy-only irreversible removal lives inside the record inspector. */
+.inv-legacy-delete{margin-top:22px;padding:18px;border:1px solid #f1cccb;border-radius:12px;background:#fff8f7;display:grid;gap:11px}
+.inv-legacy-delete>strong{font-size:14px;color:#952f33}
+.inv-legacy-delete>p{margin:0;color:#885355;font-size:12px;line-height:1.7}
+.inv-legacy-delete code{font-size:11px;background:#fff0ed;padding:2px 4px;border-radius:4px;color:#9e3739;overflow-wrap:anywhere}
+.inv-delete-confirm{display:flex;gap:12px;align-items:flex-start;padding:11px 12px;background:#fff;border:1px solid #ead5d6;border-radius:10px;font-size:12px;line-height:1.6;color:#6f4046;cursor:pointer}
+.inv-delete-confirm input{margin-top:4px;flex:0 0 auto;width:17px;height:17px;accent-color:#a12c36}
+.inv-workspace button.inv-delete-button{width:100%;min-height:42px;margin:0;border:0;border-radius:9px;padding:11px 16px;background:#b32736;color:#fff;font-size:12px;font-weight:850;box-shadow:none}
+.inv-workspace button.inv-delete-button:hover:not(:disabled){background:#95202d;box-shadow:none;transform:none}
+.inv-workspace button.inv-delete-button:disabled{background:#e8dcde;color:#a39497;cursor:not-allowed;box-shadow:none}
+.inv-legacy-delete>small{font-size:11px;line-height:1.5;color:#995c64}
