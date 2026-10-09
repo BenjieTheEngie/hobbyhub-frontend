@@ -2,6 +2,8 @@ import React, {useEffect, useState} from "react";
 import IntakePanel from "./components/IntakePanel.jsx";
 import InventoryWorkspace from "./components/InventoryWorkspace.jsx";
 import ProductEditor from "./components/ProductEditor.jsx";
+import OrderWorkbench from "./components/OrderWorkbench.jsx";
+import {loadOrderOps} from "./lib/orderOps.js";
 import {SiteHeader,Storefront,ShoppingCart} from "./components/Storefront.jsx";
 import {publishedCatalog,safeSavedCart,reconcileCart,setCartQuantity,safeSavedWishlist,toggleSavedProduct} from "./lib/shop.js";
 import {apiProduct,validProduct,uploadImage} from "./lib/intake.js";
@@ -13,6 +15,7 @@ const API_BASE_URL = "https://13bdy276e1.execute-api.us-east-2.amazonaws.com";
 const INVENTORY_API_BASE_URL = String(import.meta.env.VITE_INVENTORY_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || API_BASE_URL).replace(/\/$/, "");
 const USE_LEGACY_PRODUCT_ROUTES = !String(import.meta.env.VITE_INVENTORY_API_BASE_URL || "").trim();
 const STOCK_V2_API_BASE_URL = String(import.meta.env.VITE_STOCK_API_BASE_URL||"").trim().replace(/\/$/, "");
+const ORDER_OPS_API_BASE_URL = String(import.meta.env.VITE_ORDER_OPS_API_BASE_URL||"").trim().replace(/\/$/, "");
 const ALLOW_STOCK_INITIALIZATION = import.meta.env.VITE_ENABLE_STOCK_INITIALIZATION === "true";
 const ALLOW_STOCK_WRITES = import.meta.env.VITE_ENABLE_STOCK_WRITES === "true";
 const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
@@ -28,6 +31,7 @@ export default function HobbyHubFrontend() {
     if(!token)return;
     loadProducts();
     loadDashboard();
+    loadOrders();
   },[token]);
   const [publicStatus,setPublicStatus] = useState("coming-soon");
   const [publicProducts,setPublicProducts] = useState([]);
@@ -52,6 +56,23 @@ export default function HobbyHubFrontend() {
     return ()=>controller.abort();
   },[]);
   const [dashboard, setDashboard] = useState(null);
+  const [orders,setOrders]=useState([]);
+  const [ordersStatus,setOrdersStatus]=useState(ORDER_OPS_API_BASE_URL?"loading":"unconfigured");
+  const [ordersNotice,setOrdersNotice]=useState("");
+  async function loadOrders(){
+    if(!ORDER_OPS_API_BASE_URL){setOrdersStatus("unconfigured");return;}
+    if(!token){setOrders([]);setOrdersStatus("unconfigured");return;}
+    setOrdersStatus("loading");setOrdersNotice("");
+    try{
+      const next=await loadOrderOps(ORDER_OPS_API_BASE_URL,token);
+      setOrders(next);
+      setOrdersStatus("ready");
+    }catch(e){
+      setOrders([]);
+      setOrdersStatus("unavailable");
+      setOrdersNotice("Order verification failed: "+e.message);
+    }
+  }
   const [products, setProducts] = useState([]);
   const [message, setMessage] = useState("");
   const [page, setPage] = useState("store");
@@ -368,7 +389,7 @@ async function updateStock(product,quantity) {
               />
               {!token?<button className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white" onClick={login}>
                 Login with Cognito
-              </button>:<button type="button" className="logout-button" onClick={()=>{setToken("");setPassword("");setProducts([]);setDashboard(null);setStockStatus(STOCK_V2_API_BASE_URL?"loading":"unconfigured");setMessage("Signed out.");}}>Sign out of Admin Tools</button>}
+              </button>:<button type="button" className="logout-button" onClick={()=>{setToken("");setPassword("");setProducts([]);setDashboard(null);setOrders([]);setOrdersStatus("unconfigured");setOrdersNotice("");setStockStatus(STOCK_V2_API_BASE_URL?"loading":"unconfigured");setMessage("Signed out.");}}>Sign out of Admin Tools</button>}
               <button type="button" onClick={() => setShowPasswordRecovery(true)} style={{ background: "#e2e8f0", color: "#1e293b", maxWidth: "100%", whiteSpace: "normal" }}>
                 Forgot password / Reset password
               </button>
@@ -426,6 +447,14 @@ async function updateStock(product,quantity) {
   stockWritesEnabled={ALLOW_STOCK_WRITES}
   onStockAdjust={changeVerifiedStock}
   onStockInitialize={initializeVerifiedStock}
+/>
+
+<OrderWorkbench
+  orders={orders}
+  status={ordersStatus}
+  notice={ordersNotice}
+  onReload={loadOrders}
+  busy={ordersStatus==="loading"}
 />
 
 {token && <IntakePanel token={token} products={products} onFill={(data)=>{
