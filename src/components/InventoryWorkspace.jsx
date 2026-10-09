@@ -5,6 +5,7 @@ import {safeRecordLabel} from '../lib/legacyInventory.js';
 import {packagingWorksheetCsv,packagingReadiness} from '../lib/packagingWorksheet.js';
 import {LOCAL_PACKAGE_KEY,readSavedPackages,savePackageDrafts,withLocalPackaging} from '../lib/localPackaging.js';
 import LocalPackagingEditor from './LocalPackagingEditor.jsx';
+import {preparePackagingCsvImport} from '../lib/packagingWorksheetImport.js';
 import StockControls from './StockControls.jsx';
 import './inventory-workspace.css';
 
@@ -97,6 +98,27 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
       setExportMessage('Downloaded '+visible.length+' exact product records and any browser-saved measurements. Save this CSV as a backup. Nothing was sent to AWS.');
     }catch(e){setExportMessage('Packaging export stopped: '+e.message);}
   }
+  async function importPackagingWorksheet(event){
+    const file=event.target.files?.[0];
+    event.target.value='';
+    if(!file)return;
+    try{
+      if(file.size>400000)throw Error('Packaging CSV exceeds the 400 KB limit.');
+      if(!products.length)throw Error('Load your verified inventory records before importing.');
+      const csv=await file.text();
+      const proposed=preparePackagingCsvImport(csv,products,localPackages);
+      if(!proposed.importedCount){
+        setExportMessage('The file had no new measured packages. Nothing was saved.');
+        return;
+      }
+      if(!window.confirm('Save '+proposed.importedCount+' measured package(s) in this browser? Existing AWS inventory will not be changed. Export the CSV again for a backup.'))return;
+      window.localStorage.setItem(LOCAL_PACKAGE_KEY,proposed.serialized);
+      setLocalPackages(proposed.next);
+      setExportMessage('Imported '+proposed.importedCount+' measured package(s) locally; '+proposed.skippedEmpty+' rows had no measurements. AWS was not changed.');
+    }catch(err){
+      setExportMessage('Packaging import stopped. No changes saved: '+(err?.message||'Invalid CSV.'));
+    }
+  }
   function resetFilters() {setView('all');setCategory('All');setQuery('');setSort('issues');setPage(1);}
   return <section className="inv-workspace" aria-labelledby="inv-workspace-title">
     <div className="inv-heading">
@@ -150,7 +172,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
           <label><span>Sort</span><select value={sort} onChange={e=>setSort(e.target.value)}><option value="issues">Most issues</option><option value="name">Product name</option><option value="sku">SKU</option><option value="newest">Newest created</option><option value="price-low">Lowest price</option><option value="price-high">Highest price</option></select></label>
         </div>
         <div className="inv-results-header"><span><strong>{visible.length}</strong> matching record{visible.length===1?'':'s'} · page {page} of {pageCount}</span>
-          <div><button type="button" className="inv-link-button" onClick={resetFilters}>Clear filters</button><button type="button" className="inv-button inv-button-outline" onClick={startAuditExport} disabled={visible.length===0}>↓ Export filtered audit</button><button type="button" className="inv-button inv-button-outline" onClick={exportPackagingMeasurements} disabled={visible.length===0}>↓ Packaging worksheet</button></div>
+          <div><button type="button" className="inv-link-button" onClick={resetFilters}>Clear filters</button><button type="button" className="inv-button inv-button-outline" onClick={startAuditExport} disabled={visible.length===0}>↓ Export filtered audit</button><button type="button" className="inv-button inv-button-outline" onClick={exportPackagingMeasurements} disabled={visible.length===0}>↓ Packaging worksheet</button><label className="inv-button inv-button-outline hh-packaging-import-label">↑ Import packaging CSV<input type="file" accept=".csv,text/csv" aria-label="Import measured packaging CSV to this browser only" onChange={importPackagingWorksheet}/></label></div>
         </div>
         {notice&&<p className="inv-feedback" role="status">{notice}</p>}
         {exportMessage&&<p className="inv-feedback" role="status">{exportMessage}</p>}
