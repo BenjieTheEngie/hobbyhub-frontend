@@ -8,7 +8,7 @@ import {
 import {
   EASYPOST_SHIPMENT_URL,requireTestEasyPostKey,buildEasyPostShipmentBody,requestEasyPostTestRates
 } from '../backend/easypost-test-rates.mjs';
-import {validateCheckoutIntent,verifyCheckoutQuote} from '../backend/checkout-v2-core.mjs';
+import {validateCheckoutIntent,verifyCheckoutQuote,buildReservationTransactions} from '../backend/checkout-v2-core.mjs';
 
 const key='EZTK'+'a'.repeat(54);
 const from={recipient:'Demo Merchant',line1:'1 Test Lane',city:'Boston',state:'MA',postalCode:'02110',country:'US'};
@@ -106,5 +106,9 @@ test('carrier-based checkout estimate remains unpaid and lacks tax/final price',
   assert.equal(estimate.checkoutReady,false);
   assert.equal(estimate.totalCents,null);
   assert.equal(estimate.taxCents,null);
+  assert.throws(()=>buildReservationTransactions(estimate,{
+    stockTable:'TEST-STOCK',orderTable:'TEST-ORDERS',orderId:'order-001',
+    now:'2026-10-09T10:00:00Z',holdUntil:'2026-10-09T10:30:00Z'
+  }),/Carrier TEST quotes/);
   assert.throws(()=>composeCarrierPrecheckout(verified(),{...rated,mode:'production'},to),/test-mode/);
 });
