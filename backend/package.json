@@ -1,5 +1,5 @@
 {
-  "name": "hobbyhub-media-extension",
+  "name": "hobbyhub-backend-services",
   "private": true,
   "type": "module",
   "engines": {
@@ -13,5 +13,6 @@
     "@aws-sdk/lib-dynamodb": "^3.0.0",
     "stripe": "^19.0.0",
     "@aws-sdk/client-secrets-manager": "^3.0.0"
-  }
+  },
+  "version": "0.1.0"
 }

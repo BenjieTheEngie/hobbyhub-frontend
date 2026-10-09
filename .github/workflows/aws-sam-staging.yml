@@ -1,0 +1,55 @@
+name: AWS SAM staging validation (no deployments)
+on:
+  push:
+    branches: [main, 'feature/**']
+    paths:
+      - 'aws/**'
+      - 'backend/**'
+      - '.github/workflows/aws-sam-staging.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aws/**'
+      - 'backend/**'
+      - '.github/workflows/aws-sam-staging.yml'
+permissions:
+  contents: read
+jobs:
+  validate-isolated-stacks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install SAM CLI
+        uses: aws-actions/setup-sam@v2
+      - name: Validate infrastructure templates (offline only)
+        run: |
+          set -euo pipefail
+          sam --version
+          for template in aws/stock-v2/template.yaml aws/order-ops/template.yaml aws/carrier-preview/template.yaml aws/legacy-stock-read/template.yaml; do
+            echo "Validating $template"
+            sam validate --lint --template-file "$template"
+          done
+      - name: Build all isolated Lambda packages
+        run: |
+          set -euo pipefail
+          for stack in stock-v2 order-ops carrier-preview legacy-stock-read; do
+            echo "Building isolated $stack service (no deployment)"
+            sam build --template-file "aws/$stack/template.yaml" --build-dir ".aws-sam/build-$stack"
+          done
+      - name: Assert staging template writes are disabled by default
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source=Path('aws/stock-v2/template.yaml').read_text()
+          assert source.count("Default: 'false'")>=2, 'Stock V2 write flags must be false by default'
+          assert 'EnableStockWrites:' in source and 'EnableStockInitialization:' in source
+          assert 'PointInTimeRecoveryEnabled: true' in source
+          assert 'DeletionPolicy: Retain' in source
+          print('Stock V2 defaults preserved: writes OFF, PITR ON, retained tables')
+          PY
