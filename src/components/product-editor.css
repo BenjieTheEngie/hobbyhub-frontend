@@ -1,0 +1,36 @@
+.hh-pe{border:1px solid #e0e8f4;border-radius:22px;background:#fff;box-shadow:0 16px 40px #1d396011;overflow:hidden;scroll-margin-top:20px}
+.hh-pe *{box-sizing:border-box}
+.hh-pe-header{padding:26px 30px;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:start;border-bottom:1px solid #e6edf7}
+.hh-pe-header h2{font-size:clamp(22px,3vw,28px);color:#172f57;margin:7px 0}
+.hh-pe-header p{font-size:12px;line-height:1.65;color:#667b99;max-width:740px;margin:0}
+.hh-pe-heading-actions{display:flex;gap:9px;align-items:center}
+.hh-pe-state{display:inline-flex;padding:8px 12px;border-radius:16px;background:#eef4ff;color:#315ba5;font-size:10px;letter-spacing:.07em;font-weight:900}
+.hh-pe button.hh-pe-cancel{min-height:36px;padding:8px 12px;border-radius:8px;background:#f3f5fa;color:#3b536f;border:1px solid #dbe4ef;box-shadow:none;font-size:12px;font-weight:750}
+.hh-pe button.hh-pe-cancel:hover:not(:disabled){background:#eaf0fb;color:#2c528d;box-shadow:none}
+.hh-pe-edit-identity{margin:18px 30px 0;padding:12px 16px;background:#eef4ff;color:#4067a4;border:1px solid #d7e5fc;border-radius:10px;font-size:12px}
+.hh-pe-sections{padding:21px 30px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.hh-pe-card{display:grid;gap:13px;border:1px solid #e0e9f4;background:linear-gradient(155deg,#fff,#fbfcff);border-radius:15px;padding:19px 18px 18px;margin:0;min-width:0}
+.hh-pe-card legend{padding:0 6px;color:#223f70;font-size:14px;font-weight:850}
+.hh-pe-card legend>span{margin-right:9px;color:#356bc6;font-size:11px;letter-spacing:.08em}
+.hh-pe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.hh-pe-field{display:grid;gap:6px;min-width:0;font-size:11px;color:#526988;font-weight:850}
+.hh-pe-field>input,.hh-pe-field>select{width:100%;height:42px;margin:0;min-width:0;background:#fff;color:#294361;border:1px solid #d9e4f2;border-radius:9px;padding:9px 10px;font-size:12px}
+.hh-pe-field>input:read-only{background:#f3f6fb;color:#657993}
+.hh-pe-field small,.hh-pe-upload small{color:#8393aa;font-size:10px;font-weight:500;line-height:1.5}
+.hh-pe-warning{background:#fff7e9;border:1px solid #efd9b1;border-radius:10px;padding:12px 13px;color:#9d671d;font-size:11px;line-height:1.65;margin:0}
+.hh-pe-upload{display:flex;flex-direction:column;gap:7px;justify-content:center;border:1px dashed #bbcce3;border-radius:10px;background:#f5f9ff;padding:12px;color:#4d6992;font-weight:800;font-size:11px;min-width:0}
+.hh-pe-upload input{width:100%;min-width:0;font-size:11px}
+.hh-pe-image-preview{display:flex;justify-content:center;padding:12px;background:#f1f5fb;border-radius:9px}
+.hh-pe-image-preview img{max-height:155px;max-width:100%;object-fit:contain}
+.hh-pe-publish-switch{display:flex;align-items:center;gap:13px;padding:13px;background:#f5f8fe;border:1px solid #e2eaf6;border-radius:10px;cursor:pointer}
+.hh-pe-publish-switch input{width:20px;height:20px;flex:none}
+.hh-pe-publish-switch span{display:grid;gap:5px}
+.hh-pe-publish-switch strong{font-size:12px;color:#244877}
+.hh-pe-publish-switch small{font-size:11px;line-height:1.5;color:#8091a9}
+.hh-pe-final-note{font-size:11px;color:#7487a2;line-height:1.6}
+.hh-pe-footer{border-top:1px solid #e6edf6;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 30px;background:#f8faff}
+.hh-pe-footer>span{font-size:11px;color:#617897;line-height:1.5}
+.hh-pe button.hh-pe-save{background:#2465d5;color:#fff;min-height:44px;padding:12px 19px;border:0;border-radius:9px;box-shadow:none;white-space:normal;font-weight:850}
+.hh-pe button.hh-pe-save:hover:not(:disabled){background:#194fb3;box-shadow:none}
+@media(max-width:900px){.hh-pe-sections{grid-template-columns:1fr}.hh-pe-header,.hh-pe-sections,.hh-pe-footer{padding-left:20px;padding-right:20px}}
+@media(max-width:550px){.hh-pe-grid{grid-template-columns:1fr}.hh-pe-card{padding:15px 13px}.hh-pe-footer{flex-direction:column;align-items:stretch}.hh-pe button.hh-pe-save{width:100%}.hh-pe-header{padding-top:20px;padding-bottom:19px}}
