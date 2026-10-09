@@ -133,3 +133,15 @@ test('backend stock snapshots fail closed instead of silently dropping malformed
   assert.throws(()=>verifiedStockRows(null),/complete list/);
   assert.deepEqual(verifiedStockRows([]),[]);
 });
+
+test('published catalog refuses inactive legacy statuses and non-cent prices',()=>{
+  const base={productId:'ID-01',sku:'MTG-01',productName:'Sealed Pack',published:true,
+    status:'ACTIVE',salePrice:4.99};
+  const stock={productId:'ID-01',quantityOnHand:5,reserved:1};
+  assert.equal(safePublicProduct(base,stock).quantityOnHand,4);
+  assert.equal(safePublicProduct({...base,status:'INACTIVE'},stock),null);
+  assert.equal(safePublicProduct({...base,status:'DISCONTINUED'},stock),null);
+  assert.equal(safePublicProduct({...base,salePrice:4.999},stock),null);
+  assert.equal(safePublicProduct({...base,salePrice:50001},stock),null);
+  assert.equal(safePublicProduct({...base,salePrice:5.25},stock).salePrice,5.25);
+});
