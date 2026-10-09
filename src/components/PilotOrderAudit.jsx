@@ -19,7 +19,8 @@ export default function PilotOrderAudit(){
     const anchor=document.createElement('a');
     anchor.href=url;anchor.download='hobbyhub-pilot-order-paperwork-template.csv';
     document.body.appendChild(anchor);anchor.click();anchor.remove();
-    URL.revokeObjectURL(url);
+    // Safari/iOS may resolve the download asynchronously after the click.
+    window.setTimeout(()=>URL.revokeObjectURL(url),2000);
   }
   async function readCsv(event){
     const file=event.target.files?.[0];
