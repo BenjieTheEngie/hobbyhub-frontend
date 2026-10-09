@@ -68,5 +68,5 @@ test('missing, unpublished, archived and unverified stock must block checkout qu
 test('server state rejects duplicate internal product IDs and incomplete unique-SKU scans',()=>{
  assert.throws(()=>resolvePublicSkuCart(cart,snapshots([products[0],products[0]],stock)),/duplicate/);
  assert.throws(()=>resolvePublicSkuCart(cart,snapshots(products,[stock[0],stock[0]])),/duplicate/);
- assert.throws(()=>resolvePublicSkuCart(cart,snapshots(products,[...stock,{...stock[1],productId:'unmapped'}])),/not configured|ambiguous|not approved/);
+ assert.throws(()=>resolvePublicSkuCart(cart,snapshots(products,[...stock,{...stock[1],productId:'unmapped'}])),/orphaned/);
 });
