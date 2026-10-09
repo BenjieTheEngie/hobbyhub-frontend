@@ -35,10 +35,13 @@ jobs:
             echo "Validating $template"
             sam validate --lint --template-file "$template"
           done
-      - name: Build isolated Stock V2 Lambda packages
+      - name: Build all isolated Lambda packages
         run: |
           set -euo pipefail
-          sam build --template-file aws/stock-v2/template.yaml --build-dir .aws-sam/build-stock-v2
+          for stack in stock-v2 order-ops carrier-preview legacy-stock-read; do
+            echo "Building isolated $stack service (no deployment)"
+            sam build --template-file "aws/$stack/template.yaml" --build-dir ".aws-sam/build-$stack"
+          done
       - name: Assert staging template writes are disabled by default
         run: |
           python3 - <<'PY'
