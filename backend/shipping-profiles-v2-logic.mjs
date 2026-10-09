@@ -84,7 +84,7 @@ export function draftProfileTransactionPlan(productId,input,{profileTable,auditT
   const audit={
     requestId:draft.requestId,productId,actorId,operation:'set-package-draft',
     expectedVersion:draft.expectedVersion,newVersion:afterVersion,
-    shippingPackage:draft.shippingPackage,createdAt:now
+    shippingPackage:draft.shippingPackage,note:draft.note,createdAt:now
   };
   const operation=draft.expectedVersion===0?{
     Put:{TableName:profileTable,
