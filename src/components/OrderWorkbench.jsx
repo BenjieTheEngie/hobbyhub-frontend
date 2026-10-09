@@ -1,5 +1,6 @@
 import React,{useMemo,useState} from 'react';
 import {centsUsd,orderStats,selectOrders} from '../lib/orderOps.js';
+import CarrierRatePreview from './CarrierRatePreview.jsx';
 import './order-workbench.css';
 
 const STATUS_TEXT={
@@ -10,12 +11,13 @@ const STATUS_TEXT={
 const LAUNCH_ITEMS=[
   'Verify customer payment event handling and duplicate-webhook safety',
   'Link order reservations to versioned Stock V2 balances',
-  'Approve U.S. shipping rates separately for the lower 48/DC, Alaska and Hawaii; choose carriers, packaging and handling time',
+  'Measure packed item dimensions/weight, configure test carrier provider, then verify rates for domestic destinations',
+  'Select eligible carrier services, package insurance, origin and handling time before production',
   'Document returns, cancellations and damaged-item handling',
   'Rehearse paid → packed → shipped flow in the isolated test environment',
   'Review contact, legal and tax settings before accepting money'
 ];
-export default function OrderWorkbench({orders=[],status='unconfigured',notice='',onReload=()=>{},busy=false}) {
+export default function OrderWorkbench({orders=[],status='unconfigured',notice='',onReload=()=>{},busy=false,carrierPreviewBase='',authToken=''}) {
   const [filter,setFilter]=useState('all'),[query,setQuery]=useState(''),[sort,setSort]=useState('newest');
   const [selected,setSelected]=useState(null);
   const totals=useMemo(()=>orderStats(orders),[orders]);
@@ -36,7 +38,7 @@ export default function OrderWorkbench({orders=[],status='unconfigured',notice='
     </div>
     <div className="hh-orders-shipping-policy" role="note">
       <strong>Initial shipping policy: U.S. delivery only</strong>
-      <p>Ship to the 50 states and Washington, DC. No international shipping, territories, APO/FPO or local pickup. Shipping charges, carriers, taxes and handling times are not yet configured. Shipment actions will remain locked until paid orders, address checks and shipping labels are verified.</p>
+      <p>Ship to the 50 states and Washington, DC. No international shipping, territories, APO/FPO or local pickup. Actual rates will be calculated by a connected carrier using a measured packed parcel and U.S. delivery address; rates, taxes and handling times are not yet live. Shipment actions stay locked until payment and carrier details are verified.</p>
     </div>
     {notice&&<p role="alert" className="hh-orders-message">{notice}</p>}
     <div className="hh-orders-metrics">
@@ -75,6 +77,7 @@ export default function OrderWorkbench({orders=[],status='unconfigured',notice='
         <p className="hh-orders-readonly">Checkout remains off. This dashboard cannot charge cards, change shipments, issue refunds or reserve stock.</p>
       </aside>
     </div>
+    <CarrierRatePreview baseUrl={carrierPreviewBase} token={authToken}/>
     {current&&<div className="hh-order-modal-bg" role="presentation" onClick={()=>setSelected(null)}>
       <section className="hh-order-modal" role="dialog" aria-modal="true" aria-label={'Order '+current.orderId} onClick={e=>e.stopPropagation()}>
         <button type="button" className="hh-order-close" onClick={()=>setSelected(null)} aria-label="Close order">×</button>

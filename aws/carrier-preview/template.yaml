@@ -1,0 +1,75 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Hobby Hub admin-only EasyPost TEST carrier rate preview, no labels/payments/orders.
+Parameters:
+  CognitoUserPoolId:
+    Type: String
+    Description: Verified admin user pool, in the deployment region.
+  CognitoClientId:
+    Type: String
+    Description: Verified admin Cognito app client.
+  CarrierTestSecretArn:
+    Type: String
+    Description: Existing Secrets Manager ARN containing JSON apiKey (EZTK test) and origin address. No credentials passed via Vercel or CloudFormation.
+  FrontendOrigin:
+    Type: String
+    Default: https://hobbyhub.company
+  AdminGroupName:
+    Type: String
+    Default: hobbyhub-admin
+  AllowedAdminSubs:
+    Type: String
+    Default: ''
+  EnableCarrierPreview:
+    Type: String
+    AllowedValues: ['true','false']
+    Default: 'false'
+    Description: OFF by default; requires admin approval and test credentials.
+Resources:
+  CarrierPreviewApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: [!Ref FrontendOrigin]
+        AllowMethods: [POST, OPTIONS]
+        AllowHeaders: [authorization, content-type]
+        MaxAge: 600
+      Auth:
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              audience: [!Ref CognitoClientId]
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
+  CarrierPreviewFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: carrier-rate-preview.carrierRatePreviewHandler
+      Runtime: nodejs22.x
+      Timeout: 15
+      MemorySize: 256
+      Environment:
+        Variables:
+          HOBBYHUB_CARRIER_PREVIEW_ENABLED: !Ref EnableCarrierPreview
+          HOBBYHUB_CARRIER_TEST_SECRET_ARN: !Ref CarrierTestSecretArn
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+          HOBBYHUB_ADMIN_GROUP: !Ref AdminGroupName
+          HOBBYHUB_ALLOWED_ADMIN_SUBS: !Ref AllowedAdminSubs
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [secretsmanager:GetSecretValue]
+              Resource: !Ref CarrierTestSecretArn
+      Events:
+        TestRatePreview:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CarrierPreviewApi
+            Method: POST
+            Path: /ops/shipping/rate-preview
+            Auth: {Authorizer: CognitoJwt}
+Outputs:
+  CarrierPreviewBaseUrl:
+    Description: Admin-JWT-protected TEST preview API root. Configure VITE_CARRIER_PREVIEW_API_BASE_URL only after deployment and permission checks.
+    Value: !Sub 'https://${CarrierPreviewApi}.execute-api.${AWS::Region}.amazonaws.com'

@@ -1,6 +1,6 @@
 # Hobby Hub U.S. shipping and fulfillment launch rules
 
-**Owner decision: U.S. shipping only; no local pickup.**
+**Owner decisions: U.S. shipping only, no local pickup, carrier-calculated rates based on packed weight/dimensions and destination.**
 
 Status: **offline source and tests. Not a live shipping or payment service.** The storefront remains a browsing/cart experience without checkout.
 
@@ -8,7 +8,7 @@ Status: **offline source and tests. Not a live shipping or payment service.** Th
 
 - `backend/shipping-v2.mjs`: validates domestic address formatting (recipient, street, city, U.S. state, ZIP, country), rejects international shipping and pickup settings, and accepts the 50 states plus Washington, DC. U.S. territories and military APO/FPO destinations are excluded **for now**, pending explicit business and carrier decisions.
 - `shippingRegion`: lower 48 + DC, Alaska, Hawaii. Price rules **must** explicitly cover all three regions. No silent "free shipping" or assumed carrier charges. Flat-rate schedules in tests are **fixtures only**, not public rates.
-- `validateShippingRates`: requires an operator-approved, U.S.-only no-pickup configuration, integer-cent prices, and defined rates for every region. Missing prices block a shipping estimate.
+- `validateShippingRates` supports the prior flat-rate offline prototype only. It is **not the selected launch pricing approach** and is not connected to checkout. Carrier-calculated rating is now specified in `docs/CARRIER_CALCULATED_SHIPPING.md`.
 - `quoteDomesticShipping`: returns a safe price estimate with limited destination metadata but **does not claim carrier address validation, service selection, or delivery dates**.
 - `composePrecheckoutTotals`: provides an informational subtotal plus approved shipping estimate. Tax and the final charge remain null; checkoutReady remains false.
 - `backend/checkout-v2-core.mjs`: draft stock-reservation transactions now refuse an unconfigured domestic shipping quote and store `shippingMethod='domestic_shipping'`, `shippingCountry='US'`, an estimated rate, and **null final total**. This is a pure transaction plan and must not be executed in production.
@@ -30,7 +30,7 @@ Status: **offline source and tests. Not a live shipping or payment service.** Th
 
 The following are still **unconfigured** and require merchant approval:
 
-- Shipping charge model: approved flat-rate by region, or calculated carrier rates. No test fixture values should be used commercially.
+- **Shipping charge model decided:** carrier-calculated rates from measured packed weight/dimensions and destination; final carrier/provider and services still need approval. No test fixture values are commercial rates.
 - Carrier and services (USPS/UPS/FedEx), packaging/weight for cards versus sealed boxes versus video games, and shipping insurance/tracking thresholds.
 - Shipping origin, handling time, and any free-shipping threshold.
 - Returns/cancellations policy for singles, sealed items and used video games.
@@ -45,3 +45,5 @@ npm run build
 ```
 
 The entire repository's `tests/*.test.mjs` suite also runs in GitHub Actions. This work adds no new AWS infrastructure and changes no Vercel environment variables. Shipping/fulfillment plans are not web endpoints.
+
+See `docs/CARRIER_CALCULATED_SHIPPING.md` for the optional test-only EasyPost rate adapter and server-verified packing plan; no AWS deployment or live payment is implied.
