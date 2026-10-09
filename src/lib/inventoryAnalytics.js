@@ -30,7 +30,9 @@ export function productIssues(product,counts) {
   if(!sku)issues.push('missing-sku');
   if(sku && (counts.get(sku.toLowerCase())||0)>1)issues.push('duplicate-sku');
   if(product?.stockReported!==true)issues.push('unknown-stock');
-  if(product?.priceInvalid===true || !Number.isFinite(Number(product?.rawSalePrice ?? product?.salePrice)) || Number(product?.rawSalePrice ?? product?.salePrice)<0)issues.push('invalid-price');
+  const price=product?.rawSalePrice ?? product?.salePrice;
+  if(price==null || String(price).trim()==='' || product?.priceInvalid===true || !Number.isFinite(Number(price)) || Number(price)<0)issues.push('invalid-price');
+  else if(Number(price)===0)issues.push('zero-price');
   if(!String(product?.productName||'').trim())issues.push('missing-name');
   if(!String(product?.productId||'').trim() && !String(product?.sku||'').trim())issues.push('missing-identity');
   return issues;
@@ -44,7 +46,7 @@ export function inventorySummary(products) {
     const issues=productIssues(product,counts);
     if(issues.length)review++;
     if(issues.includes('unknown-stock'))unknownStock++;
-    if(issues.includes('invalid-price'))priceIssues++;
+    if(issues.includes('invalid-price')||issues.includes('zero-price'))priceIssues++;
     if(product?.isactive===false || product?.isActive===false)archived++;
     if(product?.category)categories.add(product.category);
   }
@@ -70,7 +72,7 @@ export function inventorySearch(products,{query='',category='All',view='all',sor
     if(view==='review' && issues.length===0)return false;
     if(view==='duplicates' && !issues.includes('duplicate-sku'))return false;
     if(view==='missing-stock' && !issues.includes('unknown-stock'))return false;
-    if(view==='invalid-price' && !issues.includes('invalid-price'))return false;
+    if(view==='invalid-price' && !issues.includes('invalid-price') && !issues.includes('zero-price'))return false;
     if(view==='archived' && p.isactive!==false && p.isActive!==false)return false;
     if(view==='active' && (p.isactive===false || p.isActive===false))return false;
     return true;
