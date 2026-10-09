@@ -8,11 +8,12 @@ export function inventoryWritesEnabled(env = process.env) {
   return key === 'productId' && env.HOBBYHUB_PRODUCTID_SCHEMA_VERIFIED === 'true';
 }
 
-export function stripeCheckoutEnabled(env = process.env) {
-  // Checkout reservation and release logic still uses the SKU primary key.
-  // NEVER enable payment handling against the legacy productId schema.
-  return env.HOBBYHUB_PRODUCTS_PK_NAME === 'sku' &&
-    inventoryWritesEnabled(env) &&
-    env.HOBBYHUB_CHECKOUT_ENABLED === 'true' &&
-    env.HOBBYHUB_STRIPE_TEST_ONLY === 'true';
+export function stripeCheckoutEnabled() {
+  // The retired legacy checkout reads and mutates products using SKU as the
+  // DynamoDB partition key. Hobby Hub's actual key is productId; its physical
+  // stock is stored separately in Inventory. Environment flags alone cannot
+  // make this integration safe even with a test-mode Stripe secret.
+  // This function intentionally NEVER permits it to run. Build and stage a
+  // separately audited Checkout V2 handler before considering payments.
+  return false;
 }
