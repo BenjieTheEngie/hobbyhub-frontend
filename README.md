@@ -56,7 +56,7 @@ Never put Stripe secret keys, AWS IAM credentials, Cognito client secrets, or pr
 1. Verify backups and reconcile legacy Inventory productId references and SKU duplicates.
 2. Deploy Stock V2 to staging with all write switches OFF. Validate authentication, readback, and approved opening balance migration.
 3. Connect the published public catalog to verified stock and valid positive prices.
-4. Finish the Stock V2 reservation/release ledger with idempotency, payment webhook tests, shipping/tax rules, refunds and fulfillment.
+4. Implement the approved **U.S.-only shipping / no local pickup** rules; decide live rates and carrier services, complete Stock V2 reservation/release ledger, signed payment webhooks, tax, refunds and fulfillment (see `docs/US_SHIPPING_AND_FULFILLMENT.md`).
 5. Only then review live Stripe launch, privacy/business policies, accessibility and end-to-end checkout security.
 
 Deployments and AWS changes require the owner's approval and verification of the correct account and environment.
