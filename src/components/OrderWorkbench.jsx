@@ -1,11 +1,11 @@
 import React,{useMemo,useState} from 'react';
-import {centsUsd,orderStats,selectOrders} from '../lib/orderOps.js';
+import {centsUsd,orderStats,selectOrders,orderTotalLabel} from '../lib/orderOps.js';
 import CarrierRatePreview from './CarrierRatePreview.jsx';
 import './order-workbench.css';
 
 const STATUS_TEXT={
   PAID:'Paid',PENDING:'Payment pending',REFUND_PENDING:'Refund pending',REFUNDED:'Refunded',
-  DISPUTED:'Disputed',UNFULFILLED:'Not fulfilled',PICKING:'Picking',PACKED:'Packed',
+  DISPUTED:'Disputed',EXPIRED:'Expired · not charged',UNFULFILLED:'Not fulfilled',PICKING:'Picking',PACKED:'Packed',
   SHIPPED:'Shipped',DELIVERED:'Delivered',CANCELLED:'Cancelled',UNKNOWN:'Needs verification'
 };
 const LAUNCH_ITEMS=[
@@ -55,7 +55,7 @@ export default function OrderWorkbench({orders=[],status='unconfigured',notice='
             <option value="all">All orders</option><option value="to-ship">Paid / not fulfilled</option>
             <option value="in-progress">Picking, packed, shipped</option>
             <option value="attention">Needs attention</option>
-            <option value="delivered">Delivered</option><option value="refunded">Refunded</option>
+            <option value="delivered">Delivered</option><option value="refunded">Refunded</option><option value="expired">Expired (unpaid)</option>
           </select></label>
           <label>Sort<select value={sort} onChange={e=>setSort(e.target.value)}><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></label>
         </div>
@@ -67,7 +67,7 @@ export default function OrderWorkbench({orders=[],status='unconfigured',notice='
             <tbody>{filtered.map(o=><tr key={o.orderId}><td><strong>{o.orderId.slice(0,12)}{o.orderId.length>12?'…':''}</strong><small>{o.createdAt?new Date(o.createdAt).toLocaleDateString():'Date unavailable'}</small></td>
               <td><span className={'hh-orders-state '+(o.paymentStatus==='PAID'?'is-paid':'')}>{STATUS_TEXT[o.paymentStatus]}</span></td>
               <td><span className="hh-orders-state">{STATUS_TEXT[o.fulfillmentStatus]}</span></td>
-              <td>{o.itemCount}</td><td>{o.totalCents===null?'Pending final total':centsUsd(o.totalCents)}</td>
+              <td>{o.itemCount}</td><td>{orderTotalLabel(o)}</td>
               <td><button type="button" className="hh-orders-review" onClick={()=>setSelected(o.orderId)}>View</button></td></tr>)}</tbody></table></div>}
       </div>
       <aside className="hh-orders-sidebar">
@@ -83,7 +83,7 @@ export default function OrderWorkbench({orders=[],status='unconfigured',notice='
         <button type="button" className="hh-order-close" onClick={()=>setSelected(null)} aria-label="Close order">×</button>
         <span className="hh-orders-eyebrow">VERIFIED ORDER RECORD</span><h3>Order {current.orderId}</h3>
         <p>Payment: {STATUS_TEXT[current.paymentStatus]}. Fulfillment: {STATUS_TEXT[current.fulfillmentStatus]}.</p>
-        <p>{current.createdAt?new Date(current.createdAt).toLocaleString():'No verified created date'} · {current.totalCents===null?'Pending final total':centsUsd(current.totalCents)}</p>
+        <p>{current.createdAt?new Date(current.createdAt).toLocaleString():'No verified created date'} · {orderTotalLabel(current)}</p>
         <h4>Items</h4>
         {current.items.length?<ul>{current.items.map((x,i)=><li key={x.sku+'-'+i}>{x.qty} × {x.productName}{x.sku?' · '+x.sku:''}</li>)}</ul>:<p>No line item summary was returned.</p>}
         <p className="hh-orders-readonly">Read-only order view. No fulfillment actions are enabled.</p>
