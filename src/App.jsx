@@ -3,7 +3,7 @@ import IntakePanel from "./components/IntakePanel.jsx";
 import InventoryWorkspace from "./components/InventoryWorkspace.jsx";
 import ProductEditor from "./components/ProductEditor.jsx";
 import {SiteHeader,Storefront,ShoppingCart} from "./components/Storefront.jsx";
-import {publishedCatalog,safeSavedCart,reconcileCart,setCartQuantity} from "./lib/shop.js";
+import {publishedCatalog,safeSavedCart,reconcileCart,setCartQuantity,safeSavedWishlist,toggleSavedProduct} from "./lib/shop.js";
 import {apiProduct,validProduct,uploadImage} from "./lib/intake.js";
 import {inventoryForView, isArchived, normalizeInventoryResponse} from "./lib/inventoryStatus.js";
 import {productRoute, countSkuMatches, recordChangedOrRemoved, exactLegacyDeletionConfirmed, safeRecordLabel} from "./lib/legacyInventory.js";
@@ -60,6 +60,18 @@ export default function HobbyHubFrontend() {
     catch {return [];}
   });
   const [shopNotice,setShopNotice] = useState("");
+  const [savedSkus,setSavedSkus]=useState(()=>{
+    try{return safeSavedWishlist(window.localStorage.getItem("hobbyhub-saved-products-v1"));}catch{return [];}
+  });
+  useEffect(()=>{
+    try{window.localStorage.setItem("hobbyhub-saved-products-v1",JSON.stringify(savedSkus));}catch{}
+  },[savedSkus]);
+  function toggleWishlist(sku) {setSavedSkus(current=>toggleSavedProduct(current,sku));}
+  function saveCartItemForLater(sku) {
+    setSavedSkus(current=>current.includes(sku)?current:toggleSavedProduct(current,sku));
+    setCart(current=>current.filter(item=>item.sku!==sku));
+    setShopNotice("Saved for later in this browser. No order has been placed.");
+  }
   useEffect(()=>{
     try {window.localStorage.setItem("hobbyhub-cart-v2",JSON.stringify(cart.map(item=>({sku:item.sku,cartQuantity:item.cartQuantity}))));}catch {}
   },[cart]);
@@ -332,7 +344,7 @@ async function updateStock(product,quantity) {
     <main className="min-h-screen bg-slate-100 p-6 text-slate-900">
       <div className="mx-auto max-w-6xl space-y-6">
         <SiteHeader page={page} onNavigate={setPage} cartCount={cart.reduce((sum,item)=>sum+item.cartQuantity,0)} />
-        {page === "store" && <Storefront products={publicProducts} status={publicStatus} notice={shopNotice} onAddToCart={addToCart} onViewCart={()=>setPage("cart")}/>}
+        {page === "store" && <Storefront products={publicProducts} status={publicStatus} notice={shopNotice} onAddToCart={addToCart} onViewCart={()=>setPage("cart")} savedSkus={savedSkus} onToggleSaved={toggleWishlist}/>}
         
 {page === "admin" && (
   <>
@@ -440,7 +452,7 @@ async function updateStock(product,quantity) {
       </>}
       </>
     )}
-{page === "cart" && <ShoppingCart cart={cart} products={publicProducts} onQuantity={changeCartQuantity} onRemove={removeCartItem} onContinue={()=>setPage("store")}/>}
+{page === "cart" && <ShoppingCart cart={cart} products={publicProducts} onQuantity={changeCartQuantity} onRemove={removeCartItem} onSaveForLater={saveCartItemForLater} onContinue={()=>setPage("store")}/>}
       </div>
     </main>
   );
