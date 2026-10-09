@@ -3,6 +3,8 @@ import {INVENTORY_VIEWS,inventorySummary,inventorySearch,inventoryAuditCsv,produ
 import {isArchived} from '../lib/inventoryStatus.js';
 import {safeRecordLabel} from '../lib/legacyInventory.js';
 import {packagingWorksheetCsv,packagingReadiness} from '../lib/packagingWorksheet.js';
+import {LOCAL_PACKAGE_KEY,readSavedPackages,savePackageDrafts,withLocalPackaging} from '../lib/localPackaging.js';
+import LocalPackagingEditor from './LocalPackagingEditor.jsx';
 import StockControls from './StockControls.jsx';
 import './inventory-workspace.css';
 
@@ -34,8 +36,23 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
   const [selected,setSelected]=useState(null);
   const [deletionAcknowledged,setDeletionAcknowledged]=useState(false);
   const [exportMessage,setExportMessage]=useState('');
+  const [localPackages,setLocalPackages]=useState(()=>{
+    try{return readSavedPackages(window.localStorage.getItem(LOCAL_PACKAGE_KEY));}
+    catch{return {};}
+  });
+  function saveLocalPackage(id,draft){
+    const next={...localPackages,[id]:draft};
+    window.localStorage.setItem(LOCAL_PACKAGE_KEY,savePackageDrafts(next));
+    setLocalPackages(next);
+  }
+  function clearLocalPackage(id){
+    const next={...localPackages};delete next[id];
+    window.localStorage.setItem(LOCAL_PACKAGE_KEY,savePackageDrafts(next));
+    setLocalPackages(next);
+  }
   const summary=useMemo(()=>inventorySummary(products),[products]);
-  const packaging=useMemo(()=>packagingReadiness(products),[products]);
+  const profiledProducts=useMemo(()=>withLocalPackaging(products,localPackages),[products,localPackages]);
+  const packaging=useMemo(()=>packagingReadiness(profiledProducts),[profiledProducts]);
   const counts=useMemo(()=>skuCounts(products),[products]);
   const visible=useMemo(()=>inventorySearch(products,{query,category,view,sort}),[products,query,category,view,sort]);
   const pageSize=20;
@@ -70,14 +87,14 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
   }
   function exportPackagingMeasurements(){
     try{
-      const csv=packagingWorksheetCsv(visible);
+      const csv=packagingWorksheetCsv(withLocalPackaging(visible,localPackages));
       const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
       const a=document.createElement('a');
       a.href=url;
       a.download='hobbyhub-packed-dimensions-'+new Date().toISOString().slice(0,10)+'.csv';
       document.body.appendChild(a);a.click();a.remove();
       window.setTimeout(()=>URL.revokeObjectURL(url),2000);
-      setExportMessage('Downloaded '+visible.length+' exact product records for packed shipping measurements. The CSV has not been saved to AWS.');
+      setExportMessage('Downloaded '+visible.length+' exact product records and any browser-saved measurements. Save this CSV as a backup. Nothing was sent to AWS.');
     }catch(e){setExportMessage('Packaging export stopped: '+e.message);}
   }
   function resetFilters() {setView('all');setCategory('All');setQuery('');setSort('issues');setPage(1);}
@@ -107,7 +124,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
       <div className="inv-stat inv-stat-alert"><span>Needs review</span><strong>{summary.review}</strong><small>Records with data warnings</small></div>
       <div className="inv-stat"><span>Duplicate SKU groups</span><strong>{summary.duplicateSkus}</strong><small>{summary.unknownStock} unknown-stock records</small></div>
       <div className="inv-stat"><span>Low stock</span><strong>{summary.lowStock}</strong><small>Verified counts at or below reorder points</small></div>
-      <div className="inv-stat"><span>Shipping packaging</span><strong>{packaging.ready}/{packaging.total}</strong><small>{packaging.missing} missing measurements · {packaging.ambiguous} need IDs</small></div>
+      <div className="inv-stat"><span>Shipping packaging</span><strong>{packaging.ready}/{packaging.total}</strong><small>{packaging.missing} missing · browser-only measurements included</small></div>
     </div>
 
     <div className="inv-body">
@@ -176,6 +193,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
           <div><dt>Created</dt><dd>{selectedRecord.createdAt||'Unknown'}</dd></div>
         </dl>
         <div className="inv-detail-issues"><strong>Data quality</strong>{selectedIssues.length===0?<p>No known issues in the current product API response.</p>:<div>{selectedIssues.map(issue=><span key={issue} className="inv-chip inv-chip-warn">{issueLabels[issue]}</span>)}</div>}</div>
+        <LocalPackagingEditor key={selectedRecord.productId||selectedRecord.sku} product={selectedRecord} localDraft={localPackages[selectedRecord.productId]} onSave={saveLocalPackage} onClear={clearLocalPackage}/>
         <StockControls key={selectedRecord.productId||selectedRecord.sku} product={selectedRecord} status={stockStatus} busy={busy||stockBusyId===selectedRecord.productId} allowInitialize={stockInitializeEnabled} allowAdjust={stockWritesEnabled} onInitialize={onStockInitialize} onAdjust={onStockAdjust} onRefresh={onReload}/>
         <div className="inv-dialog-actions">
           <button type="button" className="inv-button inv-button-light" onClick={closeRecord}>Close</button>
