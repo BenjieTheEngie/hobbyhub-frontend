@@ -96,3 +96,23 @@ test('never infer fulfillment permission from Stripe return URL or cart status',
   assert.equal(fulfillmentEligible({...order,paymentStatus:'PAID',status:'PAID',shippingAddressVerified:true,items:[]}),false);
   assert.equal(fulfillmentEligible({...order,paymentStatus:'PAID',status:'PAID',shippingAddressVerified:true,shippingCountry:'CA'}),false);
 });
+
+test('unpublished or non-ACTIVE legacy Products cannot be priced for checkout even with positive stock',()=>{
+  const intent=validateCheckoutIntent({requestId,items:[{productId:'product-01',qty:1}]});
+  const original=inventory.find(p=>p.productId==='product-01');
+  const baseStocks=snapshots({allowDuplicates:true});
+  const archivedValues=[
+    {...original,status:'INACTIVE'},
+    {...original,status:'DELETED'},
+    {...original,status:'ARCHIVED'},
+    {...original,published:false,status:'ACTIVE'}
+  ];
+  for(const item of archivedValues){
+    const state={...baseStocks,productsById:new Map(baseStocks.productsById)};
+    state.productsById.set('product-01',item);
+    assert.throws(()=>verifyCheckoutQuote(intent,state),/unavailable or unpublished/);
+  }
+  const allowed={...baseStocks,productsById:new Map(baseStocks.productsById)};
+  allowed.productsById.set('product-01',{...original,status:'ACTIVE'});
+  assert.equal(verifyCheckoutQuote(intent,allowed).subtotalCents,599);
+});
