@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Hobby Hub isolated, admin-only DRAFT shipping package profiles; no payments or stock writes.
+Parameters:
+  ExistingProductsTable:
+    Type: String
+    Default: hobbyhub-ProductsTable-KC31XDEOENBG
+    Description: Existing verified productId-keyed Products table. GetItem only.
+  CognitoUserPoolId:
+    Type: String
+    Description: Verified existing Cognito user pool.
+  CognitoClientId:
+    Type: String
+    Description: Verified existing Cognito public app client ID.
+  FrontendOrigin:
+    Type: String
+    Default: https://hobbyhub.company
+  AdminGroupName:
+    Type: String
+    Default: hobbyhub-admin
+  AllowedAdminSubs:
+    Type: String
+    Default: ''
+  EnableProfileWrites:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true','false']
+    Description: OFF by default; enable only after authenticated staging and owner approval.
+Resources:
+  ShippingProfilesV2:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification: {SSEEnabled: true}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      AttributeDefinitions:
+        - {AttributeName: productId, AttributeType: S}
+      KeySchema:
+        - {AttributeName: productId, KeyType: HASH}
+  ShippingProfilesAuditV2:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification: {SSEEnabled: true}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      AttributeDefinitions:
+        - {AttributeName: requestId, AttributeType: S}
+      KeySchema:
+        - {AttributeName: requestId, KeyType: HASH}
+  ShippingProfilesApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: [!Ref FrontendOrigin]
+        AllowMethods: [GET, PUT, OPTIONS]
+        AllowHeaders: [authorization, content-type]
+        MaxAge: 600
+      Auth:
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              audience: [!Ref CognitoClientId]
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
+  ShippingProfilesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: shipping-profiles-v2.shippingProfilesV2Handler
+      Runtime: nodejs22.x
+      Timeout: 20
+      MemorySize: 256
+      Environment:
+        Variables:
+          HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
+          HOBBYHUB_SHIPPING_PROFILE_TABLE: !Ref ShippingProfilesV2
+          HOBBYHUB_SHIPPING_PROFILE_AUDIT_TABLE: !Ref ShippingProfilesAuditV2
+          HOBBYHUB_SHIPPING_PROFILE_WRITES_ENABLED: !Ref EnableProfileWrites
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+          HOBBYHUB_ADMIN_GROUP: !Ref AdminGroupName
+          HOBBYHUB_ALLOWED_ADMIN_SUBS: !Ref AllowedAdminSubs
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:GetItem]
+              Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
+            - Effect: Allow
+              Action: [dynamodb:Scan, dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem]
+              Resource: !GetAtt ShippingProfilesV2.Arn
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:PutItem]
+              Resource: !GetAtt ShippingProfilesAuditV2.Arn
+      Events:
+        ListDrafts:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ShippingProfilesApi
+            Path: /ops/shipping/profiles
+            Method: GET
+            Auth: {Authorizer: CognitoJwt}
+        GetDraft:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ShippingProfilesApi
+            Path: /ops/shipping/profiles/{productId}
+            Method: GET
+            Auth: {Authorizer: CognitoJwt}
+        SaveDraft:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ShippingProfilesApi
+            Path: /ops/shipping/profiles/{productId}
+            Method: PUT
+            Auth: {Authorizer: CognitoJwt}
+Outputs:
+  ShippingProfilesApiBaseUrl:
+    Description: Admin-only DRAFT shipping profile API origin. Do not enable without staging security review.
+    Value: !Sub 'https://${ShippingProfilesApi}.execute-api.${AWS::Region}.amazonaws.com'
+  ShippingProfilesTable:
+    Value: !Ref ShippingProfilesV2
+  ShippingProfilesAuditTable:
+    Value: !Ref ShippingProfilesAuditV2
