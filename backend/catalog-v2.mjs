@@ -27,9 +27,9 @@ export async function catalogV2Handler(event) {
   if(!productsTable||!stockTable)return reply(503,{message:'Public catalog is not configured.'});
   try{
     const [products,rawStocks]=await Promise.all([
-      scanBounded(productsTable,'#id,#sku,#name,#category,#price,#published,#active,#oldActive,#image,#set,#collector,#condition,#finish,#lang',{
+      scanBounded(productsTable,'#id,#sku,#name,#status,#category,#price,#published,#active,#oldActive,#image,#set,#collector,#condition,#finish,#lang',{
         '#id':'productId','#sku':'sku','#name':'productName','#category':'category','#price':'salePrice',
-        '#published':'published','#active':'isactive','#oldActive':'isActive','#image':'imageUrl',
+        '#published':'published','#status':'status','#active':'isactive','#oldActive':'isActive','#image':'imageUrl',
         '#set':'setCode','#collector':'collectorNumber','#condition':'condition','#finish':'finish','#lang':'language'
       }),
       scanBounded(stockTable,'#id,#qty,#reserved,#reorder,#version,#updated',{
