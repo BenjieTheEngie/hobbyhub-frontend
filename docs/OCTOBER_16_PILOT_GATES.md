@@ -18,6 +18,21 @@
 - GitHub main merged PR #49 (permanent quarantine of unsafe legacy Stripe checkout), then PR #50 (explicit ACTIVE status required in offline Checkout V2). Both had passing GitHub automated CI at merge. These are source changes, not an AWS deployment.
 - Vercel GitHub status/checks pass but Vercel team-scoped API access to `benjietheengies-projects` returns 403. Cannot independently bind `hobbyhub.company` production alias to a specific commit or inspect deployment environment flags until proper team access is repaired.
 
+## Current physical catalog gaps verified read-only (October 9)
+
+A fresh consistent read of BOTH original DynamoDB Products and Inventory tables on October 9 again returned **7 products, 7 matching Inventory entries, 301 on-hand units**. This total is a historical database snapshot, **not available-to-sell inventory or a physical recount**. No stock, approval, or order records were changed.
+
+Across **all 7 product records**:
+- **0/7** have an explicit `published:true` authorization.
+- **0/7** have a usable `imageUrl` recorded.
+- **0/7** have a recorded physical condition.
+- **0/7** have a recognized shipping package profile.
+- All 7 are `status:'ACTIVE'`, which does **not** imply a public listing or approval for payment.
+
+Merchant should **curate a smaller subset**, not blanket activate seven items. For each proposed SKU, first verify the real item's identity/printing/edition, condition and photo, exact physical stock count, sale price, package dimensions and packed ounces including protective mailer, carrier acceptance and marketability. Where source records are placeholders (generic product names/descriptions, ambiguous printing or missing edition), replace placeholder content with a verified exact listing only through the approved product workflow. Never infer missing condition or package measurements. For serialized/one-of-one cards, photograph the exact item, avoid overselling, and check any external sales channel for conflicting allocation. Do not publish or change the current seven original AWS records merely to clear a readiness warning.
+
+**Expected operator action:** use the signed-in inventory workspace and its packaging/export audit, plus the newly merged offline pilot paperwork audit `docs/PILOT_ORDER_WORKSHEET.md`. The latter can audit paper references but cannot validate inventory counts or create stock reservations.
+
 ## Pilot critical-path gates (all required for paid sales)
 
 1. **Security and permissions:** Owner-approved least-privilege AWS deployment identity for future deployment; identify verified Cognito admin group or owner subject (no wildcard). Do not use root to deploy Stock V2 or checkout. Restore Vercel team access for production deploy and environment verification.
