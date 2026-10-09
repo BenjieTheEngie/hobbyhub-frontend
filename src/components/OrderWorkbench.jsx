@@ -10,7 +10,7 @@ const STATUS_TEXT={
 const LAUNCH_ITEMS=[
   'Verify customer payment event handling and duplicate-webhook safety',
   'Link order reservations to versioned Stock V2 balances',
-  'Set domestic shipping rates, carriers, package sizes and cutoff times',
+  'Approve U.S. shipping rates separately for the lower 48/DC, Alaska and Hawaii; choose carriers, packaging and handling time',
   'Document returns, cancellations and damaged-item handling',
   'Rehearse paid → packed → shipped flow in the isolated test environment',
   'Review contact, legal and tax settings before accepting money'
@@ -33,6 +33,10 @@ export default function OrderWorkbench({orders=[],status='unconfigured',notice='
     <div className="hh-orders-status" role="status">
       <strong>{status==='unconfigured'?'Customer orders are not connected yet':status==='loading'?'Loading verified customer orders…':status==='unavailable'?'Order service cannot be verified':'Order read-only connection established'}</strong>
       <p>{status==='unconfigured'?'This interface is prepared, but no customer-order API or Stripe checkout has been deployed. No customer orders are being created.':status==='unavailable'?'Existing products and inventory are unaffected; no guessed order information will be displayed.':status==='loading'?'Waiting for the authenticated order service.':'This panel is read-only. Payment and shipment actions are disabled until stock reservations, Stripe events and shipping are verified.'}</p>
+    </div>
+    <div className="hh-orders-shipping-policy" role="note">
+      <strong>Initial shipping policy: U.S. delivery only</strong>
+      <p>Ship to the 50 states and Washington, DC. No international shipping, territories, APO/FPO or local pickup. Shipping charges, carriers, taxes and handling times are not yet configured. Shipment actions will remain locked until paid orders, address checks and shipping labels are verified.</p>
     </div>
     {notice&&<p role="alert" className="hh-orders-message">{notice}</p>}
     <div className="hh-orders-metrics">
