@@ -6,6 +6,7 @@ import CatalogApprovalAdmin from "./components/CatalogApprovalAdmin.jsx";
 import CatalogReadinessPanel from "./components/CatalogReadinessPanel.jsx";
 import ProductEditor from "./components/ProductEditor.jsx";
 import OrderWorkbench from "./components/OrderWorkbench.jsx";
+import PilotOrderAudit from "./components/PilotOrderAudit.jsx";
 import {loadOrderOps} from "./lib/orderOps.js";
 import {SiteHeader,Storefront,ShoppingCart} from "./components/Storefront.jsx";
 import {publishedCatalog,safeSavedCart,reconcileCart,setCartQuantity,safeSavedWishlist,toggleSavedProduct} from "./lib/shop.js";
@@ -466,6 +467,7 @@ async function updateStock(product,quantity) {
   carrierPreviewBase={CARRIER_PREVIEW_API_BASE_URL}
   authToken={token}
 />
+<PilotOrderAudit/>
 
 {token && <IntakePanel token={token} products={products} onFill={(data)=>{
   if(data.sku){
