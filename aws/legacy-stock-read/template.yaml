@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Isolated admin-only ORIGINAL Hobby Hub Inventory read API; zero DynamoDB writes.
+Parameters:
+  ExistingInventoryTable:
+    Type: String
+    Default: hobbyhub-InventoryTable-X2IRQDAGW7WB
+    Description: Verified original Inventory productId HASH key, us-east-2.
+  CognitoUserPoolId:
+    Type: String
+    Description: Verified existing Cognito user pool.
+  CognitoClientId:
+    Type: String
+    Description: Verified existing Cognito public app client ID.
+  FrontendOrigin:
+    Type: String
+    Default: https://hobbyhub.company
+  AdminGroupName:
+    Type: String
+    Default: hobbyhub-admin
+  AllowedAdminSubs:
+    Type: String
+    Default: ''
+Resources:
+  LegacyStockReadApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: [!Ref FrontendOrigin]
+        AllowMethods: [GET, OPTIONS]
+        AllowHeaders: [authorization, content-type]
+        MaxAge: 600
+      Auth:
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              audience: [!Ref CognitoClientId]
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
+  ReadOriginalInventoryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: legacy-stock-read.legacyStockReadHandler
+      Runtime: nodejs22.x
+      MemorySize: 256
+      Timeout: 20
+      Environment:
+        Variables:
+          HOBBYHUB_LEGACY_INVENTORY_TABLE: !Ref ExistingInventoryTable
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+          HOBBYHUB_ADMIN_GROUP: !Ref AdminGroupName
+          HOBBYHUB_ALLOWED_ADMIN_SUBS: !Ref AllowedAdminSubs
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:Scan]
+              Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingInventoryTable}'
+      Events:
+        ReadLegacyStock:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref LegacyStockReadApi
+            Method: GET
+            Path: /ops/legacy-stock
+            Auth: {Authorizer: CognitoJwt}
+Outputs:
+  LegacyStockReadUrl:
+    Description: JWT-admin-protected, read-only root API URL; set frontend env only after staging verification.
+    Value: !Sub 'https://${LegacyStockReadApi}.execute-api.${AWS::Region}.amazonaws.com'
