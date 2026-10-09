@@ -14,7 +14,7 @@ const key='EZTK'+'a'.repeat(54);
 const from={recipient:'Demo Merchant',line1:'1 Test Lane',city:'Boston',state:'MA',postalCode:'02110',country:'US'};
 const to={recipient:'Demo Receiver',line1:'2 Sample Ave',city:'Seattle',state:'WA',postalCode:'98101',country:'US'};
 const parcel={lengthIn:9,widthIn:6,heightIn:2,weightOz:8.5};
-const p={productId:'p-01',sku:'MTG-A',productName:'Demo card',published:true,salePrice:3,shippingPackage:parcel};
+const p={productId:'p-01',sku:'MTG-A',productName:'Demo card',published:true,status:'ACTIVE',salePrice:3,shippingPackage:parcel};
 const intent=validateCheckoutIntent({requestId:'7cf18d40-0a57-4f45-af9f-fb5d478cf5a0',items:[{productId:'p-01',qty:1}]});
 const verified=()=>verifyCheckoutQuote(intent,{productsById:new Map([['p-01',p]]),
   stockById:new Map([['p-01',{productId:'p-01',onHand:3,reserved:0,version:1}]]),
