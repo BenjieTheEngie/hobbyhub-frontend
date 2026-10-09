@@ -1,6 +1,6 @@
 # Hobby Hub — project handoff / restart guide
 
-> **Last checked:** 2026-10-09, including newer GitHub commits through `c7c801f6`. Intended as a durable reference for continuing development in a **new ChatGPT conversation** when the original chat becomes too long.
+ > **Last checked:** 2026-10-09, including merged launch preparation through `767e6be9`. Intended as a durable reference for continuing development in a **new ChatGPT conversation** when the original chat becomes too long.
 >
 > **Authoritative source:** GitHub repository `BenjieTheEngie/hobbyhub-frontend`, branch `main`. Do not rely on this document instead of checking current GitHub commits, CI results and actual AWS resources before changes.
 
@@ -16,6 +16,14 @@
 - Old PR #40 was based on a stale checkout branch and was superseded in substance by #50; check whether it remains open before doing new checkout work.
 
 **Next priority:** restore scoped Vercel team access and least-privilege AWS identity, get a clear owner decision on a **manual hosted-invoice pilot versus no paid sales until full automation**, identify a small explicitly approved physical product set and merchant shipping origin/policies. Continue offline code and test hardening without mutating existing stock, deployment or payments.
+
+## Follow-on launch-preparation milestone — 2026-10-09
+
+- **PR #52 merged** at `767e6be9`: added a signed-in admin **Manual sales paperwork audit** that downloads a blank CSV and locally reviews a redacted, operator-created pilot sales worksheet. Strict schema, unique productId/SKU, cross-order invoice/payment/tracking reference checks and missing stock/parcel/U.S. destination/rate/tax/hosted-invoice/provider evidence flags. All rows remain `canCharge:false`, `canShip:false`, `paymentVerifiedBySystem:false` and `inventoryReserved:false`. CSV is never uploaded or persisted; browser cannot charge, reserve or ship. CI passed before merge. See `docs/PILOT_ORDER_WORKSHEET.md`.
+- This next documentation milestone adds `docs/PILOT_FULFILLMENT_SOP.md`, an operator-controlled pick/pack/quote/hosted-invoice/provider-reconciliation/returns playbook with explicit stop conditions; and `docs/PILOT_CUSTOMER_POLICIES_DRAFT.md`, **unapproved** drafting guidance for seller contact, shipping/handling, tax, product condition, returns and privacy.
+- `hobbyhub.company` responds publicly, but its deployed SHA and production build flags still cannot be independently confirmed because **Vercel team access returns 403**. No new AWS backend, payment, catalog approval, Stock V2 or carrier service was deployed. The original account still needs least-privilege delegation from the root principal.
+- **PR #40 has been closed** as superseded by #50. The October 16 target remains **conditional**, with no owner authorization to accept customer money or publish products.
+- Next actions requiring the owner's input: authorized Vercel team connection; scoped AWS deployment identity; choose hosted invoice provider and pilot selling scope; ship-from ZIP, measured package profiles, approved carrier services, tax and returns/handling policies. Do not ask for secrets in chat.
 
 ## Read this first in a new chat
 
