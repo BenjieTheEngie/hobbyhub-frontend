@@ -112,7 +112,7 @@ export function buildReservationTransactions(quote,{stockTable,orderTable,orderI
     subtotalCents:quote.subtotalCents,totalCents:null,
     shippingCents:quote.shippingCents,taxCents:null,currency:'usd',createdAt:now,updatedAt:now,
     shippingCountry:'US',shippingMethod:'domestic_shipping',shippingRegion:quote.shippingRegion,
-    pickupAvailable:false,shippingAddressVerified:false,createdAt:now,updatedAt:now,
+    pickupAvailable:false,shippingAddressVerified:false,
     reservedUntil:holdUntil,version:1,
   };
   const put={Put:{TableName:orderTable,Item:order,ConditionExpression:'attribute_not_exists(orderId)'}};
