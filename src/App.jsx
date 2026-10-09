@@ -221,9 +221,15 @@ async function updateStock(product,quantity) {
     try {
       const product=validProduct(productForm);
       if(editingSku && product.sku!==editingSku)throw Error("SKU cannot be changed while editing.");
-      await apiProduct(editingSku?"/products/"+encodeURIComponent(editingSku):"/products",token,editingSku?"PUT":"POST",product);
+      if(!editingSku && products.some(p=>p.sku.toLowerCase()===product.sku.toLowerCase()))throw Error("This SKU already exists. Choose a unique SKU.");
+      const original=editingSku?products.find(p=>USE_LEGACY_PRODUCT_ROUTES?p.productId===editingProductId:p.sku===editingSku):null;
+      if(editingSku && !original)throw Error("Cannot identify the exact record being edited. Reload inventory.");
+      const path=original?productRoute(original,USE_LEGACY_PRODUCT_ROUTES):"/products";
+      if(!path)throw Error("Missing product API identifier.");
+      await apiProduct(path,token,original?"PUT":"POST",product);
       const successMessage=editingSku?"Saved product changes in AWS.":"Created product in AWS.";
       setEditingSku(null);
+      setEditingProductId(null);
       setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});
       await loadProducts();
       await loadDashboard();
@@ -238,7 +244,9 @@ async function updateStock(product,quantity) {
     finally{setImageBusy(false);}
   }
   function editProduct(item){
+    if(USE_LEGACY_PRODUCT_ROUTES && !item.productId){setInventoryNotice("Cannot edit: productId missing.");return;}
     setEditingSku(item.sku);
+    setEditingProductId(item.productId||null);
     setProductForm(p=>({...p,...item}));
     setMessage("Editing "+item.sku+". Save changes after reviewing the fields.");
     document.getElementById("product-editor")?.scrollIntoView({behavior:"smooth",block:"start"});
@@ -394,7 +402,7 @@ async function updateStock(product,quantity) {
 }} onUpdated={loadProducts}/>} 
         <section className="rounded-2xl bg-white p-6 shadow" id="product-editor">
           <h2 className="text-xl font-semibold">{editingSku?"Edit inventory item":"Add inventory product"}</h2>
-          {editingSku&&<button onClick={()=>{setEditingSku(null);setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});}}>Cancel edit / New product</button>}
+          {editingSku&&<button onClick={()=>{setEditingSku(null);setEditingProductId(null);setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});}}>Cancel edit / New product</button>}
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <input className="rounded-lg border p-3" value={productForm.productName} onChange={(e) => updateProductField("productName", e.target.value)} placeholder="Product Name" />
             <input className="rounded-lg border p-3" value={productForm.sku} onChange={(e) => updateProductField("sku", e.target.value)} placeholder="SKU" />
