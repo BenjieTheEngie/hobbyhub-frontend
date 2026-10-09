@@ -54,7 +54,8 @@ export function verifyCheckoutQuote(intent,{productsById,stockById,skuCounts}) {
   for(const {productId,qty} of intent.items) {
     const product=productsById.get(productId);
     if(!product||product.productId!==productId||product.published!==true||
-       product.isactive===false||product.isActive===false)
+       product.isactive===false||product.isActive===false||
+       (product.status!==undefined&&product.status!=='ACTIVE'))
       throw Error('Cart contains an unavailable or unpublished product.');
     const sku=String(product.sku||'').trim();
     if(!SKU.test(sku)||skuCounts.get(sku.toLowerCase())!==1||skus.has(sku.toLowerCase()))
