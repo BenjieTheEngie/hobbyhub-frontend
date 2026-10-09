@@ -25,6 +25,12 @@
 - **PR #40 has been closed** as superseded by #50. The October 16 target remains **conditional**, with no owner authorization to accept customer money or publish products.
 - Next actions requiring the owner's input: authorized Vercel team connection; scoped AWS deployment identity; choose hosted invoice provider and pilot selling scope; ship-from ZIP, measured package profiles, approved carrier services, tax and returns/handling policies. Do not ask for secrets in chat.
 
+## Verified latest prelaunch audit — 2026-10-09
+
+- Merged **PR #53** as `604f5206` after frontend and AWS offline CI success: `docs/PILOT_FULFILLMENT_SOP.md` defines a human-controlled order-to-shipping, cancellation/refund and daily reconciliation process; `docs/PILOT_CUSTOMER_POLICIES_DRAFT.md` marks all merchant handling/returns/privacy/tax policy decisions **unapproved**, not ready to post publicly.
+- Fresh **strongly consistent read-only** original Products/Inventory scan again verified **7 + 7 linked records and 301 on-hand units**, preserving all originals. ALL seven original Product entries are ACTIVE but have **no imageUrl, no condition, no recognized shippingPackage, and no explicit published:true**; the records should not be considered sale-ready. Data is a point-in-time legacy database count, not a physical count or stock allocation. See `docs/OCTOBER_16_PILOT_GATES.md`.
+- Verified direct Vercel queries for project, deployment and custom domain all returned the same **403 unauthorized team scope**. Vercel team enumeration returned **0 teams**. The site URL responds but its alias SHA and production flags remain unverified; **owner must reauthorize correct team membership/connector**. No root-based AWS deploy, payment activation, catalog approval, stock migration or shipping-label purchase was attempted.
+
 ## Read this first in a new chat
 
 Continue building Hobby Hub, a U.S.-only e-commerce site for trading-card singles/sealed products, tabletop items, collectibles, and secondhand video games. User wants to keep developing proactively, requesting input only when needed. **Preserve working legacy inventory CRUD and all historical product/inventory data. Keep live payments, automatic publication, AWS stock migrations and shipping-label purchases DISABLED until an independently tested, explicitly authorized launch.** Prefer safe isolated improvements, GitHub feature branches/PRs, tests, and verified deployments.
