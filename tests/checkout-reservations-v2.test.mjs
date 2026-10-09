@@ -74,7 +74,7 @@ test('release never runs on pending, paid, unexpired, pickup or international or
   assert.throws(()=>expire({...order,shippingCountry:'CA'}),/domestic/);
   assert.throws(()=>expire({...order,pickupAvailable:true}),/domestic/);
   assert.throws(()=>expire({...order,fulfillmentStatus:'SHIPPED'}),/domestic/);
-  assert.throws(()=>expire(order,{now:'2026-10-09T18:15:00Z'}),/not expired/);
+  assert.throws(()=>expire(order,{now:'2026-10-09T18:15:00Z',evidence:{...evidence,providerCheckedAt:'2026-10-09T18:15:00Z'}}),/not expired/);
   assert.throws(()=>expire(order,{evidence:{...evidence,provider:'other'}}),/expiry/);
   assert.throws(()=>expire(order,{evidence:{...evidence,noCapturedPaymentVerified:false}}),/expiry/);
   assert.throws(()=>expire(order,{evidence:{...evidence,mode:'live'}}),/expiry/);
