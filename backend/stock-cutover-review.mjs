@@ -39,6 +39,8 @@ function stableRows(rows){
     sku:row.sku,
     productName:row.productName,
     status:row.status,
+    salePrice:row.salePrice,
+    published:row.published,
     onHand:row.onHand,
     reorderPoint:row.reorderPoint,
     updatedAt:row.updatedAt,
@@ -74,7 +76,7 @@ export function makeStockCutoverReview({products,inventory,productsComplete=fals
     if(p.status!=='ACTIVE')throw Error('Only confirmed ACTIVE Products may be included.');
     rows.push({
       productId,sku:p.sku.trim(),productName:String(p.productName||'').trim(),
-      status:p.status,onHand,reorderPoint,updatedAt:stock.updatedAt
+      status:p.status,salePrice:p.salePrice,published:p.published===true,onHand,reorderPoint,updatedAt:stock.updatedAt
     });
     if(!rows[rows.length-1].productName)throw Error('Product name missing.');
   }
