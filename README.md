@@ -48,7 +48,7 @@ Never put Stripe secret keys, AWS IAM credentials, Cognito client secrets, or pr
 ## Project documentation
 
 - `docs/INVENTORY_V2_REBUILD.md` — legacy inventory audit, duplicate handling and migration strategy
-- `docs/STOCK_V2_DEPLOYMENT.md` — isolated versioned stock tables and default-off adjustment controls
+- `docs/STOCK_V2_DEPLOYMENT.md` — isolated versioned stock tables, explicit publication approvals, and default-off adjustment controls
 - `docs/ORDER_OPERATIONS_ROADMAP.md` — staged customer order admin with zero payment permissions
 - `docs/CHECKOUT_V2_RESERVATIONS.md` — pure checkout planning, stock reservations and Stripe requirements
 - `scripts/diagnose-stock-integration.sh` — read-only AWS CloudShell inspection
