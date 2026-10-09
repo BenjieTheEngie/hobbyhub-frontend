@@ -26,6 +26,11 @@ Parameters:
     AllowedValues: ['true','false']
     Default: 'false'
     Description: Enable only after reviewing real AWS Inventory records and staging checks.
+  EnableCatalogApprovalWrites:
+    Type: String
+    AllowedValues: ['true','false']
+    Default: 'false'
+    Description: OFF until an authenticated administrator and staging audit are verified.
   EnableStockInitialization:
     Type: String
     AllowedValues: ['true','false']
@@ -139,6 +144,56 @@ Resources:
             ApiId: !Ref StockApi
             Method: POST
             Path: /stock/{productId}/adjust
+            Auth: {Authorizer: CognitoJwt}
+  CatalogApprovalAdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: catalog-admin.catalogApprovalAdminHandler
+      Runtime: nodejs22.x
+      Timeout: 25
+      MemorySize: 256
+      Environment:
+        Variables:
+          HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
+          HOBBYHUB_CATALOG_APPROVALS_TABLE: !Ref CatalogApprovalTable
+          HOBBYHUB_STOCK_V2_AUDIT_TABLE: !Ref StockV2AuditTable
+          HOBBYHUB_CATALOG_APPROVAL_WRITES_ENABLED: !Ref EnableCatalogApprovalWrites
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+          HOBBYHUB_ADMIN_GROUP: !Ref AdminGroupName
+          HOBBYHUB_ALLOWED_ADMIN_SUBS: !Ref AllowedAdminSubs
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:Scan]
+              Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:Scan, dynamodb:PutItem]
+              Resource: !GetAtt CatalogApprovalTable.Arn
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:PutItem]
+              Resource: !GetAtt StockV2AuditTable.Arn
+      Events:
+        ListApprovalReviews:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref StockApi
+            Method: GET
+            Path: /ops/catalog-approvals
+            Auth: {Authorizer: CognitoJwt}
+        ApproveCatalogProduct:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref StockApi
+            Method: POST
+            Path: /ops/catalog-approvals/{productId}/approve
+            Auth: {Authorizer: CognitoJwt}
+        RevokeCatalogProduct:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref StockApi
+            Method: POST
+            Path: /ops/catalog-approvals/{productId}/revoke
             Auth: {Authorizer: CognitoJwt}
   PublicCatalogFunction:
     Type: AWS::Serverless::Function
