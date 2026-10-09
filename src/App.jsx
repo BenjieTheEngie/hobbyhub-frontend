@@ -16,6 +16,7 @@ const INVENTORY_API_BASE_URL = String(import.meta.env.VITE_INVENTORY_API_BASE_UR
 const USE_LEGACY_PRODUCT_ROUTES = !String(import.meta.env.VITE_INVENTORY_API_BASE_URL || "").trim();
 const STOCK_V2_API_BASE_URL = String(import.meta.env.VITE_STOCK_API_BASE_URL||"").trim().replace(/\/$/, "");
 const ORDER_OPS_API_BASE_URL = String(import.meta.env.VITE_ORDER_OPS_API_BASE_URL||"").trim().replace(/\/$/, "");
+const CARRIER_PREVIEW_API_BASE_URL = String(import.meta.env.VITE_CARRIER_PREVIEW_API_BASE_URL||"").trim().replace(/\/$/, "");
 const ALLOW_STOCK_INITIALIZATION = import.meta.env.VITE_ENABLE_STOCK_INITIALIZATION === "true";
 const ALLOW_STOCK_WRITES = import.meta.env.VITE_ENABLE_STOCK_WRITES === "true";
 const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
@@ -455,6 +456,8 @@ async function updateStock(product,quantity) {
   notice={ordersNotice}
   onReload={loadOrders}
   busy={ordersStatus==="loading"}
+  carrierPreviewBase={CARRIER_PREVIEW_API_BASE_URL}
+  authToken={token}
 />
 
 {token && <IntakePanel token={token} products={products} onFill={(data)=>{
