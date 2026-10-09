@@ -66,7 +66,7 @@ export function safePublicProduct(product,stock) {
   if(!sku||!name||!Number.isFinite(price)||price<=0 || typeof product.productId!=='string'||product.productId!==stock.productId)return null;
   if(!Number.isSafeInteger(stock.quantityOnHand)||stock.quantityOnHand<1)return null;
   const url=typeof product.imageUrl==='string' && /^https:\/\//i.test(product.imageUrl)?product.imageUrl:'';
-  return {sku,productName:name,category:product.category||'Accessories',salePrice:price,
+  return {sku,productName:name,published:true,isactive:true,category:product.category||'Accessories',salePrice:price,
     quantityOnHand:stock.quantityOnHand,imageUrl:url,setCode:product.setCode||'',collectorNumber:product.collectorNumber||'',
     condition:product.condition||'',finish:product.finish||'',language:product.language||''};
 }
