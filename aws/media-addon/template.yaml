@@ -61,7 +61,12 @@ Parameters:
     Type: String
     AllowedValues: ['true','false']
     Default: 'false'
-    Description: Keep false until AWS and Stripe webhook sandbox end-to-end tests pass.
+    Description: Legacy checkout is retired and cannot be enabled by this flag.
+  EnableLegacyCheckoutInfrastructure:
+    Type: String
+    AllowedValues: ['false']
+    Default: 'false'
+    Description: Permanently quarantine unsafe SKU-keyed legacy checkout resources. Use isolated Checkout V2 design instead.
   ShippingCents:
     Type: String
     Default: ''
@@ -77,6 +82,9 @@ Parameters:
     Description: HTTPS Vercel origin; must match the staged frontend origin.
 Conditions:
   HasStripeSecrets: !And
+    # Both secrets and legacy enable flag are insufficient to deploy the unsafe
+    # payment functions. The new allowlist restricts this flag to 'false'.
+    - !Equals [!Ref EnableLegacyCheckoutInfrastructure, 'true']
     - !Not [!Equals [!Ref StripeTestSecretArn, '']]
     - !Not [!Equals [!Ref StripeWebhookSecretArn, '']]
   CheckoutEnabled: !Equals [!Ref EnableCheckout, 'true']
