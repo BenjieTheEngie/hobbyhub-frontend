@@ -18,7 +18,7 @@ function quote(){
   const intent=validateCheckoutIntent({requestId,items:[{productId:'p1',qty:2}]});
   const priced=verifyCheckoutQuote(intent,{
     productsById:new Map([['p1',{productId:'p1',sku:'MTG-TEST-001',
-      productName:'Test cards',published:true,salePrice:4}]]),
+      productName:'Test cards',published:true,status:'ACTIVE',salePrice:4}]]),
     stockById:new Map([['p1',{productId:'p1',onHand:6,reserved:1,version:3}]]),
     skuCounts:new Map([['mtg-test-001',1]])
   });
