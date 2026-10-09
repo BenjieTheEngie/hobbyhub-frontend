@@ -20,6 +20,8 @@ jobs:
     name: Lint all AWS SAM templates offline
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      SAM_CLI_TELEMETRY: '0'
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/setup-sam@v2
@@ -35,7 +37,16 @@ jobs:
           printf 'Found %s AWS SAM templates.\n' "${#templates[@]}"
           for template in "${templates[@]}"; do
             echo "::group::Validating ${template}"
-            sam validate --lint --template-file "${template}"
+            if [[ "${template}" == "aws/media-addon/template.yaml" ]]; then
+              # SAM expands conditional Lambda Event routes into Fn::If branches.
+              # cfn-lint W1028 can mark SAM-generated false branches unreachable.
+              # Suppress ONLY this known warning in the old, still-disabled
+              # media add-on; enforce every other lint finding.
+              sam validate --template-file "${template}"
+              cfn-lint --ignore-checks W1028 "${template}"
+            else
+              sam validate --lint --template-file "${template}"
+            fi
             echo "::endgroup::"
           done
       - name: Verify no credentials were required
