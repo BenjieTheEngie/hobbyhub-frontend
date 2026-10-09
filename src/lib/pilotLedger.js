@@ -81,6 +81,7 @@ export function parsePilotLedger(input){
     throw Error('Pilot CSV must use the exact unmodified template header.');
   if(records.length-1>MAX_ROWS)throw Error('Pilot CSV review is limited to 250 lines.');
   const byOrderAndProduct=new Set(),productSku=new Map(),skuProduct=new Map(),orderFields=new Map();
+  const externalReferenceOwner=new Map();
   const rows=records.slice(1).map((fields,index)=>{
     const line=index+2;
     if(fields.length!==PILOT_COLUMNS.length)throw Error('Row '+line+': wrong column count.');
@@ -111,6 +112,16 @@ export function parsePilotLedger(input){
     if(orderFields.has(row.orderRef.toLowerCase())&&orderFields.get(row.orderRef.toLowerCase())!==summary)
       throw Error('Row '+line+': payment/invoice fields conflict within the same order.');
     orderFields.set(row.orderRef.toLowerCase(),summary);
+    // A copied hosted-invoice/payment/label reference must not accidentally
+    // reconcile two distinct orders. Multiple items within one order are fine.
+    for(const field of ['hostedInvoiceRef','paymentEvidenceRef','trackingRef']){
+      if(!row[field])continue;
+      const token=field+'\\u0000'+row[field].toLowerCase();
+      const owner=externalReferenceOwner.get(token);
+      if(owner&&owner!==row.orderRef.toLowerCase())
+        throw Error('Row '+line+': '+field+' is reused across distinct orders.');
+      externalReferenceOwner.set(token,row.orderRef.toLowerCase());
+    }
     return Object.freeze({...row,quantity:Number(row.quantity)});
   });
   return rows;
