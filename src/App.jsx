@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from "react";
 import IntakePanel from "./components/IntakePanel.jsx";
 import InventoryWorkspace from "./components/InventoryWorkspace.jsx";
+import ProductEditor from "./components/ProductEditor.jsx";
 import {SiteHeader,Storefront,ShoppingCart} from "./components/Storefront.jsx";
 import {publishedCatalog,safeSavedCart,reconcileCart,setCartQuantity} from "./lib/shop.js";
 import {apiProduct,validProduct,uploadImage} from "./lib/intake.js";
@@ -353,29 +354,18 @@ async function updateStock(product,quantity) {
   }
   setMessage("Card information copied. Review its exact printing, SKU, price and condition before saving.");
 }} onUpdated={loadProducts}/>} 
-        <section className="rounded-2xl bg-white p-6 shadow" id="product-editor">
-          <h2 className="text-xl font-semibold">{editingSku?"Edit inventory item":"Add inventory product"}</h2>
-          {editingSku&&<button onClick={()=>{setEditingSku(null);setEditingProductId(null);setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});}}>Cancel edit / New product</button>}
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <input className="rounded-lg border p-3" value={productForm.productName} onChange={(e) => updateProductField("productName", e.target.value)} placeholder="Product Name" />
-            <input className="rounded-lg border p-3" value={productForm.sku} onChange={(e) => updateProductField("sku", e.target.value)} placeholder="SKU" />
-            <input className="rounded-lg border p-3" value={productForm.category} onChange={(e) => updateProductField("category", e.target.value)} placeholder="Category" />
-            <input className="rounded-lg border p-3" type="number" value={productForm.salePrice} onChange={(e) => updateProductField("salePrice", Number(e.target.value))} placeholder="Sale Price" />
-            <input className="rounded-lg border p-3" type="number" value={productForm.quantityOnHand} onChange={(e) => updateProductField("quantityOnHand", Number(e.target.value))} placeholder="Quantity" />
-            <input className="rounded-lg border p-3" type="number" value={productForm.reorderPoint} onChange={(e) => updateProductField("reorderPoint", Number(e.target.value))} placeholder="Reorder Point" />
-            <input className="rounded-lg border p-3" value={productForm.setCode} onChange={e=>updateProductField("setCode",e.target.value)} placeholder="Set code" />
-            <input className="rounded-lg border p-3" value={productForm.collectorNumber} onChange={e=>updateProductField("collectorNumber",e.target.value)} placeholder="Collector number" />
-            <input className="rounded-lg border p-3" value={productForm.condition} onChange={e=>updateProductField("condition",e.target.value)} placeholder="Condition" />
-            <input className="rounded-lg border p-3" value={productForm.barcode} onChange={e=>updateProductField("barcode",e.target.value)} placeholder="Barcode" />
-            <input className="rounded-lg border p-3" value={productForm.imageUrl} onChange={e=>updateProductField("imageUrl",e.target.value)} placeholder="HTTPS image URL" />
-            <label className="product-photo-upload">Upload product photo <input type="file" accept="image/jpeg,image/png,image/webp" disabled={imageBusy||!token} onChange={e=>{const file=e.target.files?.[0];e.target.value='';uploadCurrentImage(file);}} />{imageBusy&&<small>Uploading securely…</small>}</label>
-            {productForm.imageUrl&&<img className="editor-preview" src={productForm.imageUrl} alt="Product preview" onError={e=>{e.currentTarget.style.display="none";}}/>}
-            <label className="publish-label"><input type="checkbox" checked={productForm.published===true} onChange={e=>updateProductField("published",e.target.checked)}/> Publish on storefront</label>
-          </div>
-           <button className="mt-4 rounded-xl bg-green-600 px-4 py-2 font-semibold text-white" onClick={createProduct} disabled={!token}>
-            {editingSku?"Save product changes":"Add product to AWS"}
-          </button>
-     </section>
+        <ProductEditor
+          form={productForm}
+          editingSku={editingSku}
+          editingProductId={editingProductId}
+          isLegacy={USE_LEGACY_PRODUCT_ROUTES}
+          isSignedIn={Boolean(token)}
+          imageBusy={imageBusy}
+          onChange={updateProductField}
+          onSave={createProduct}
+          onCancel={startNewProduct}
+          onUpload={uploadCurrentImage}
+        />
       </>}
       </>
     )}
