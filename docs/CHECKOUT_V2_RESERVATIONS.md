@@ -54,3 +54,5 @@ Stock V2 now models `reserved:0` on new opening balances, enforces physical stoc
 An expired unpaid order is represented in the read-only operations panel as **EXPIRED / CANCELLED / Not charged**, never as PAID or a calculated purchase total.
 
 Test locally with `node --test tests/checkout-reservations-v2.test.mjs tests/order-workbench.test.mjs`.
+
+**Webhook decision model:** `backend/payment-webhook-review.mjs` is an offline fail-closed Stripe test-event evaluator only. It checks session/order/amount identities, durable replay fingerprints and late-event disposition, but can never mark an order paid, capture stock or accept money. See `docs/PAYMENT_WEBHOOK_RECONCILIATION.md`.
