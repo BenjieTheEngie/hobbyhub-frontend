@@ -2,6 +2,7 @@ import React,{useMemo,useState,useEffect} from 'react';
 import {INVENTORY_VIEWS,inventorySummary,inventorySearch,inventoryAuditCsv,productIssues,skuCounts,recordKey,money} from '../lib/inventoryAnalytics.js';
 import {isArchived} from '../lib/inventoryStatus.js';
 import {safeRecordLabel} from '../lib/legacyInventory.js';
+import {packagingWorksheetCsv,packagingReadiness} from '../lib/packagingWorksheet.js';
 import StockControls from './StockControls.jsx';
 import './inventory-workspace.css';
 
@@ -34,6 +35,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
   const [deletionAcknowledged,setDeletionAcknowledged]=useState(false);
   const [exportMessage,setExportMessage]=useState('');
   const summary=useMemo(()=>inventorySummary(products),[products]);
+  const packaging=useMemo(()=>packagingReadiness(products),[products]);
   const counts=useMemo(()=>skuCounts(products),[products]);
   const visible=useMemo(()=>inventorySearch(products,{query,category,view,sort}),[products,query,category,view,sort]);
   const pageSize=20;
@@ -66,6 +68,18 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
     downloadAudit(visible);
     setExportMessage('Downloaded '+visible.length+' matching records. Nothing was changed in AWS.');
   }
+  function exportPackagingMeasurements(){
+    try{
+      const csv=packagingWorksheetCsv(visible);
+      const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+      const a=document.createElement('a');
+      a.href=url;
+      a.download='hobbyhub-packed-dimensions-'+new Date().toISOString().slice(0,10)+'.csv';
+      document.body.appendChild(a);a.click();a.remove();
+      window.setTimeout(()=>URL.revokeObjectURL(url),2000);
+      setExportMessage('Downloaded '+visible.length+' exact product records for packed shipping measurements. The CSV has not been saved to AWS.');
+    }catch(e){setExportMessage('Packaging export stopped: '+e.message);}
+  }
   function resetFilters() {setView('all');setCategory('All');setQuery('');setSort('issues');setPage(1);}
   return <section className="inv-workspace" aria-labelledby="inv-workspace-title">
     <div className="inv-heading">
@@ -93,6 +107,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
       <div className="inv-stat inv-stat-alert"><span>Needs review</span><strong>{summary.review}</strong><small>Records with data warnings</small></div>
       <div className="inv-stat"><span>Duplicate SKU groups</span><strong>{summary.duplicateSkus}</strong><small>{summary.unknownStock} unknown-stock records</small></div>
       <div className="inv-stat"><span>Low stock</span><strong>{summary.lowStock}</strong><small>Verified counts at or below reorder points</small></div>
+      <div className="inv-stat"><span>Shipping packaging</span><strong>{packaging.ready}/{packaging.total}</strong><small>{packaging.missing} missing measurements · {packaging.ambiguous} need IDs</small></div>
     </div>
 
     <div className="inv-body">
@@ -118,7 +133,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
           <label><span>Sort</span><select value={sort} onChange={e=>setSort(e.target.value)}><option value="issues">Most issues</option><option value="name">Product name</option><option value="sku">SKU</option><option value="newest">Newest created</option><option value="price-low">Lowest price</option><option value="price-high">Highest price</option></select></label>
         </div>
         <div className="inv-results-header"><span><strong>{visible.length}</strong> matching record{visible.length===1?'':'s'} · page {page} of {pageCount}</span>
-          <div><button type="button" className="inv-link-button" onClick={resetFilters}>Clear filters</button><button type="button" className="inv-button inv-button-outline" onClick={startAuditExport} disabled={visible.length===0}>↓ Export filtered audit</button></div>
+          <div><button type="button" className="inv-link-button" onClick={resetFilters}>Clear filters</button><button type="button" className="inv-button inv-button-outline" onClick={startAuditExport} disabled={visible.length===0}>↓ Export filtered audit</button><button type="button" className="inv-button inv-button-outline" onClick={exportPackagingMeasurements} disabled={visible.length===0}>↓ Packaging worksheet</button></div>
         </div>
         {notice&&<p className="inv-feedback" role="status">{notice}</p>}
         {exportMessage&&<p className="inv-feedback" role="status">{exportMessage}</p>}
