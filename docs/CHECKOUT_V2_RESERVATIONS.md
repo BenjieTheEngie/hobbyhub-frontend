@@ -20,15 +20,14 @@ The existing `backend/checkout.mjs` assumes products are keyed by `sku`, while r
 1. **Stock V2 reserved units**: before executing any plan, extend initialization to create `reserved:0`, update stock adjustments to enforce `onHand >= reserved`, and implement transactional idempotent reserve/release/capture flows. The Stock V2 stack has not been deployed. This iteration intentionally does not add stock writes.
 2. **Atomic order idempotency**: checkout request ID must have a server-enforced unique reservation record; repeated requests must return an existing valid Stripe session instead of reserving again. The pure plan does not establish this yet.
 3. **Signed Stripe webhooks**: validate provider signatures, associate sessions with immutable order IDs, reconcile late payments, retry/event replay, payment reversals, disputes, and releases. None of this is wired.
-4. **Shipping/tax**: subtotal is informational. There is no verified shipping or tax quote yet, so the returned pure object deliberately has `shippingCents:null`, `taxCents:null`, `totalCents:null`, `checkoutReady:false`. Do not charge cards until real business rules are confirmed.
+4. **Shipping/tax**: U.S.-only delivery, no pickup is approved. A pure merchant-approved three-region shipping estimate can now be produced by `backend/shipping-v2.mjs`, but the merchant has not set actual rates and no address has been carrier-verified. Tax and final charge remain `null`, and `checkoutReady:false`. Do not charge cards until real business rules and tax are confirmed.
 5. **AWS access and deployment**: original Inventory table key/relations and paid order history must be reconciled before any new stock cutover. Separate backups are required.
 6. **Customer privacy**: capture shipping addresses only through the approved secure payment flow, and expose customer PII to authorized fulfillment workers on a need-to-know basis.
 
 ## Merchant input needed
 
-- Domestic US only or international at first launch?
-- Shipping carriers/services, packaging, estimated handling time and shipping charges?
-- Allow local pickup?
+- **Already decided:** U.S. delivery only (50 states + DC); no local pickup, territories or international in the first version.
+- **Still needed:** shipping carriers/services, packaging, handling time and charge model; distinct approved rates for lower 48/DC, Alaska, and Hawaii.
 - Returns/refunds for singles versus sealed products and used video games?
 - Launch with just in-stock items and explicit unpublished state (recommended).
 
@@ -37,3 +36,5 @@ The present storefront remains a non-payment shopping list until all above steps
 ## Deployment guardrails
 
 No new environment variables were enabled; no AWS resources, payment secrets or records were accessed or changed. Run `node --test tests/checkout-v2-core.test.mjs` to validate the pure domain model. Do not promote this file into a Lambda handler by importing it alone; an independently verified secured checkout deployment and integration suite are required.
+
+See `docs/US_SHIPPING_AND_FULFILLMENT.md` for U.S.-only shipping and offline paid-only fulfillment guards.
