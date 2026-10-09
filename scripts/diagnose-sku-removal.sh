@@ -89,19 +89,47 @@ if [[ -n "$TABLE" ]]; then
   echo "=== Table status/key schema; no modifications ==="
   aws dynamodb describe-table --table-name "$TABLE" --query 'Table.{Name:TableName,Status:TableStatus,KeySchema:KeySchema,AttributeDefinitions:AttributeDefinitions}' --output json || true
   echo
-  echo "=== MTG-001 status (only sku, isactive, published; if key is sku:string) ==="
+  echo "=== MTG-001 inventory lookup (read-only; key schema aware) ==="
   TABLE_JSON="$(aws dynamodb describe-table --table-name "$TABLE" --query 'Table.{KeySchema:KeySchema,AttributeDefinitions:AttributeDefinitions}' --output json 2>/dev/null || echo '{}')"
   if printf '%s' "$TABLE_JSON" | python3 -c '
 import json,sys
 d=json.load(sys.stdin)
 keys=d.get("KeySchema") or []
 attrs=d.get("AttributeDefinitions") or []
-assert len(keys)==1 and keys[0].get("AttributeName")=="sku" and keys[0].get("KeyType")=="HASH"
-assert any(a.get("AttributeName")=="sku" and a.get("AttributeType")=="S" for a in attrs)
+sys.exit(0 if len(keys)==1 and keys[0].get("AttributeName")=="sku" and keys[0].get("KeyType")=="HASH" and any(a.get("AttributeName")=="sku" and a.get("AttributeType")=="S" for a in attrs) else 1)
 '; then
     aws dynamodb get-item --table-name "$TABLE" --key '{"sku":{"S":"MTG-001"}}' --projection-expression '#s,#a,#p' --expression-attribute-names '{"#s":"sku","#a":"isactive","#p":"published"}' --consistent-read --query 'Item' --output json || true
+  elif printf '%s' "$TABLE_JSON" | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+keys=d.get("KeySchema") or []
+attrs=d.get("AttributeDefinitions") or []
+sys.exit(0 if len(keys)==1 and keys[0].get("AttributeName")=="productId" and keys[0].get("KeyType")=="HASH" and any(a.get("AttributeName")=="productId" and a.get("AttributeType")=="S" for a in attrs) else 1)
+'; then
+    echo "Detected productId String primary key. Looking for the exact SKU as an attribute."
+    # Strong consistent, limited read. No full product content or credentials.
+    aws dynamodb scan \
+      --table-name "$TABLE" \
+      --consistent-read \
+      --max-items 250 \
+      --filter-expression '#s = :wanted' \
+      --projection-expression '#id,#s,#a,#p' \
+      --expression-attribute-names '{"#id":"productId","#s":"sku","#a":"isactive","#p":"published"}' \
+      --expression-attribute-values '{":wanted":{"S":"MTG-001"}}' \
+      --output json | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+rows=d.get("Items",[])
+print("Exact SKU MTG-001 match count:",len(rows))
+for row in rows[:5]:
+    get=lambda key: row.get(key,{}).get("S")
+    flag=lambda key: row.get(key,{}).get("BOOL","absent")
+    print(json.dumps({"sku":get("sku"),"productIdPresent":bool(get("productId")),"isactive":flag("isactive"),"published":flag("published")}))
+if d.get("NextToken"):
+    print("Warning: scan result truncated. Do not assume the SKU is unique.")
+' || echo "ProductId scan unavailable; verify DynamoDB read permissions."
   else
-    echo "Table primary key is not exactly sku (String), so no product was queried."
+    echo "Unsupported key schema. No SKU lookup attempted; send the table schema for review."
   fi
 fi
 
