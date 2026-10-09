@@ -136,3 +136,17 @@
 .hh-stock-balance strong{font-size:26px;color:#23519d}
 .hh-stock-balance small{font-size:11px;color:#6b809f}
 @media(max-width:550px){.hh-stock-inputs{grid-template-columns:1fr}}
+
+/* Shipping parcels saved per productId in this browser only */
+.hh-packaging-editor{display:grid;gap:11px;margin-top:18px;padding:16px;border:1px solid #d4e3f3;border-radius:12px;background:#f7fbff}
+.hh-packaging-heading{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.hh-packaging-heading strong{font-size:13px;color:#224d82}
+.hh-packaging-heading span{font-size:10px;font-weight:800;color:#55789f}
+.hh-packaging-editor>p{font-size:11px;line-height:1.6;color:#687c96;margin:0}
+.hh-packaging-editor form{display:grid;gap:12px}
+.hh-packaging-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.hh-packaging-editor label{font-size:11px;font-weight:750;color:#547299;display:grid;gap:5px;min-width:0}
+.hh-packaging-editor input{min-width:0;width:100%;height:40px;border:1px solid #d5e3f1;border-radius:8px;padding:8px;background:#fff;color:#284972;font-size:12px}
+.hh-packaging-actions{display:flex;flex-wrap:wrap;gap:9px}
+.hh-packaging-editor .inv-feedback{margin:0}
+@media(max-width:600px){.hh-packaging-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
