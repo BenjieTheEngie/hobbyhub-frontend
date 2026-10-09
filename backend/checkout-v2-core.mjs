@@ -88,6 +88,10 @@ export function buildReservationTransactions(quote,{stockTable,orderTable,orderI
     !Number.isFinite(Date.parse(holdUntil))||Date.parse(holdUntil)<=Date.parse(now))
     throw Error('Valid order identity, table names and reservation expiry required.');
   if(!quote?.items?.length||quote.checkoutReady!==false)throw Error('Verified pre-checkout quote required.');
+  // EasyPost test-rate previews are not chargeable and must never trigger
+  // stock reservations, Stripe sessions or an executable order plan.
+  if(quote.rateMode==='test'||quote.carrierRateConfirmedForPayment===false)
+    throw Error('Carrier TEST quotes cannot authorize reservation or payment.');
   if(quote.shippingMethod!=='domestic_shipping'||quote.shippingCountry!=='US'||
      quote.pickupAvailable!==false || !['contiguous','alaska','hawaii'].includes(quote.shippingRegion) ||
      !Number.isSafeInteger(quote.shippingCents)||quote.shippingCents<0||quote.shippingCents>50000 ||
