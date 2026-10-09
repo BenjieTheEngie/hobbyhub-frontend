@@ -17,7 +17,7 @@ This is an isolated stock service designed to coexist with (not replace) the wor
 
 `EnableStockWrites=false` controls any stock write. `EnableStockInitialization=false` separately controls opening balances. `VITE_ENABLE_STOCK_INITIALIZATION=true` shows the initialization form in the browser but **does not grant AWS permission**.
 
-**Do not enable these switches until the original InventoryTable key schema, stock fields and productId references have been inspected**. Existing legacy product rows omit `quantityOnHand`; assuming zero would destroy stock counts.
+The frontend also requires `VITE_ENABLE_STOCK_WRITES=true` before adjustment controls are enabled. This is a UI switch only: it cannot bypass the backend's `EnableStockWrites=false` guard. The frontend flag defaults OFF.\n\n**Do not enable these switches until the original InventoryTable key schema, stock fields and productId references have been inspected**. Existing legacy product rows omit `quantityOnHand`; assuming zero would destroy stock counts.
 
 ### Staging and production steps
 
