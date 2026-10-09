@@ -16,6 +16,7 @@ export function normalizeInventoryResponse(response) {
     category: String(p.category || 'Accessories'),
     salePrice: Math.max(0, Number(p.salePrice) || 0),
     quantityOnHand: Math.max(0, Math.trunc(Number(p.quantityOnHand) || 0)),
+    stockReported: p.quantityOnHand !== null && p.quantityOnHand !== undefined && Number.isFinite(Number(p.quantityOnHand)),
     imageUrl: String(p.imageUrl || ''),
     published: p.published === true,
     isactive: !isArchived(p),
