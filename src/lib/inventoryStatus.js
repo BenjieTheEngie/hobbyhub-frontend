@@ -24,7 +24,7 @@ export function normalizeInventoryResponse(response) {
     publicationKnown: typeof p.published === 'boolean',
     activeStatusKnown: typeof p.isactive === 'boolean' || typeof p.isActive === 'boolean',
     isactive: !isArchived(p),
-  })).filter(p => p.sku);
+  })).filter(p => p.sku || (typeof p.productId === 'string' && p.productId.trim()));
 }
 
 export function inventoryForView(products, showArchived = false) {
