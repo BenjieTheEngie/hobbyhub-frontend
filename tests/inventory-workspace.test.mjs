@@ -74,3 +74,11 @@ test('No mutation of source inventory while creating issue views or CSV',()=>{
   inventorySummary(records);
   assert.equal(JSON.stringify(records),before);
 });
+
+test('Records with a productId but missing SKU remain visible for reconciliation',()=>{
+  const list=normalizeInventoryResponse({items:[{productId:'legacy-orphan',productName:'Unknown item',category:'Accessories',salePrice:1}]});
+  assert.equal(list.length,1);
+  assert.equal(list[0].sku,'');
+  assert.ok(productIssues(list[0],skuCounts(list)).includes('missing-sku'));
+  assert.equal(inventorySummary(list).review,1);
+});
