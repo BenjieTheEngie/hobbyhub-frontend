@@ -44,3 +44,21 @@ export function safeRecordLabel(product) {
   // A short suffix distinguishes records without showing full identifiers.
   return id ? '…'+id.slice(-6) : 'ID unavailable';
 }
+
+/**
+ * Verify exactly one *identified* product record disappeared from a full
+ * before/after GET snapshot. A filtered, truncated or malformed response
+ * must never be mistaken for a successful destructive operation.
+ */
+export function exactLegacyDeletionConfirmed(target,before,after) {
+  const identity=productIdentity(target,true);
+  if(!identity || !Array.isArray(before) || !Array.isArray(after))return false;
+  if(before.length===0 || after.length!==before.length-1)return false;
+  const ids=(items)=>items.map(p=>productIdentity(p,true)?.id);
+  const previousIds=ids(before), currentIds=ids(after);
+  if(previousIds.some(id=>!id)||currentIds.some(id=>!id))return false;
+  if(new Set(previousIds).size!==before.length||new Set(currentIds).size!==after.length)return false;
+  if(!previousIds.includes(identity.id) || currentIds.includes(identity.id))return false;
+  const next=new Set(currentIds);
+  return previousIds.filter(id=>!next.has(id)).length===1;
+}
