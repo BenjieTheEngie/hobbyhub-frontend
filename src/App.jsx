@@ -14,6 +14,7 @@ const INVENTORY_API_BASE_URL = String(import.meta.env.VITE_INVENTORY_API_BASE_UR
 const USE_LEGACY_PRODUCT_ROUTES = !String(import.meta.env.VITE_INVENTORY_API_BASE_URL || "").trim();
 const STOCK_V2_API_BASE_URL = String(import.meta.env.VITE_STOCK_API_BASE_URL||"").trim().replace(/\/$/, "");
 const ALLOW_STOCK_INITIALIZATION = import.meta.env.VITE_ENABLE_STOCK_INITIALIZATION === "true";
+const ALLOW_STOCK_WRITES = import.meta.env.VITE_ENABLE_STOCK_WRITES === "true";
 const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
 const COGNITO_REGION = "us-east-2";
 
@@ -244,7 +245,7 @@ async function updateStock(product,quantity) {
     }
   }
   async function changeVerifiedStock(product,{delta,reason,note=""}){
-    if(!canEditStock(product,stockStatus)||!STOCK_V2_API_BASE_URL)throw Error("Verified stock service or product balance is unavailable.");
+    if(!ALLOW_STOCK_WRITES||!canEditStock(product,stockStatus)||!STOCK_V2_API_BASE_URL)throw Error("Stock writes are disabled until the new API is approved.");
     const after=computeNewStock(product.quantityOnHand,delta);
     const requestId=window.crypto.randomUUID();
     setStockBusyId(product.productId);
@@ -264,7 +265,7 @@ async function updateStock(product,quantity) {
     }finally{setStockBusyId("");}
   }
   async function initializeVerifiedStock(product,{onHand,reorderPoint,reason,note=""}){
-    if(!ALLOW_STOCK_INITIALIZATION||stockStatus!=="ready"||!STOCK_V2_API_BASE_URL||!product?.productId)throw Error("New opening balances are not enabled.");
+    if(!ALLOW_STOCK_WRITES||!ALLOW_STOCK_INITIALIZATION||stockStatus!=="ready"||!STOCK_V2_API_BASE_URL||!product?.productId)throw Error("New opening balances are not enabled.");
     if(product.stockReported===true)throw Error("This product already has a verified balance.");
     const requestId=window.crypto.randomUUID();
     setStockBusyId(product.productId);
@@ -409,7 +410,8 @@ async function updateStock(product,quantity) {
   editorSku={editingSku}
   stockStatus={stockStatus}
   stockBusyId={stockBusyId}
-  stockInitializeEnabled={ALLOW_STOCK_INITIALIZATION}
+  stockInitializeEnabled={ALLOW_STOCK_WRITES&&ALLOW_STOCK_INITIALIZATION}
+  stockWritesEnabled={ALLOW_STOCK_WRITES}
   onStockAdjust={changeVerifiedStock}
   onStockInitialize={initializeVerifiedStock}
 />
