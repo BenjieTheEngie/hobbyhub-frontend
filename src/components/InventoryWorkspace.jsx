@@ -5,6 +5,7 @@ import {safeRecordLabel} from '../lib/legacyInventory.js';
 import {packagingWorksheetCsv,packagingReadiness} from '../lib/packagingWorksheet.js';
 import {LOCAL_PACKAGE_KEY,readSavedPackages,savePackageDrafts,withLocalPackaging} from '../lib/localPackaging.js';
 import LocalPackagingEditor from './LocalPackagingEditor.jsx';
+import CatalogLaunchReadiness from './CatalogLaunchReadiness.jsx';
 import {preparePackagingCsvImport} from '../lib/packagingWorksheetImport.js';
 import StockControls from './StockControls.jsx';
 import './inventory-workspace.css';
@@ -197,6 +198,8 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
         <div className="inv-footer">Exports are generated locally from the products already loaded in this browser. No AWS write or delete requests are made by searching, reviewing or exporting.</div>
       </div>
     </div>
+
+    <CatalogLaunchReadiness products={profiledProducts}/>
 
     {selectedRecord&&<div className="inv-modal-backdrop" role="presentation" onClick={closeRecord}>
       <section role="dialog" aria-modal="true" aria-labelledby="inv-dialog-title" className="inv-dialog" onClick={e=>e.stopPropagation()}>
