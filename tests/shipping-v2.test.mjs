@@ -62,7 +62,7 @@ test('approved merchant rates must be explicit for all supported regions, never 
 });
 test('precheckout totals include approved shipping but NEVER invent tax or charge total',()=>{
   const intent=validateCheckoutIntent({requestId:req,items:[{productId:'product-01',qty:2}]});
-  const prod={productId:'product-01',sku:'MTG-ABC',productName:'Booster',published:true,salePrice:5.99};
+  const prod={productId:'product-01',sku:'MTG-ABC',productName:'Booster',published:true,status:'ACTIVE',salePrice:5.99};
   const stock={productId:'product-01',version:2,onHand:4,reserved:0};
   const quote=verifyCheckoutQuote(intent,{productsById:new Map([['product-01',prod]]),
     stockById:new Map([['product-01',stock]]),skuCounts:new Map([['mtg-abc',1]])});
