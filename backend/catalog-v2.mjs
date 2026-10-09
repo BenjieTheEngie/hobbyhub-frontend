@@ -1,7 +1,7 @@
 import {DynamoDBClient} from '@aws-sdk/client-dynamodb';
 import {DynamoDBDocumentClient,ScanCommand} from '@aws-sdk/lib-dynamodb';
 import {reply} from './security.mjs';
-import {stockBalance,joinedPublicCatalog} from './stock-v2-logic.mjs';
+import {verifiedStockRows,joinedPublicCatalog} from './stock-v2-logic.mjs';
 
 const db=DynamoDBDocumentClient.from(new DynamoDBClient({}));
 async function scanBounded(table,projection,names) {
@@ -36,7 +36,7 @@ export async function catalogV2Handler(event) {
         '#id':'productId','#qty':'onHand','#reserved':'reserved','#reorder':'reorderPoint','#version':'version','#updated':'updatedAt'
       })
     ]);
-    const items=joinedPublicCatalog(products,rawStocks.map(stockBalance).filter(Boolean));
+    const items=joinedPublicCatalog(products,verifiedStockRows(rawStocks));
     const origin=process.env.HOBBYHUB_ALLOWED_ORIGIN||'https://hobbyhub.company';
     return {statusCode:200,headers:{'Content-Type':'application/json',
       'Cache-Control':'public,max-age=30','Access-Control-Allow-Origin':origin,Vary:'Origin'},

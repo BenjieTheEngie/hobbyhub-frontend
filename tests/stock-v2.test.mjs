@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validProductId,validRequestId,nonnegativeWhole,validateAdjustment,validateInitialization,stockBalance,ownRecord,safePublicProduct,joinedPublicCatalog} from '../backend/stock-v2-logic.mjs';
+import {validProductId,validRequestId,nonnegativeWhole,validateAdjustment,validateInitialization,stockBalance,verifiedStockRows,ownRecord,safePublicProduct,joinedPublicCatalog} from '../backend/stock-v2-logic.mjs';
 import {normalizeStockResponse,mergeVerifiedStock,canEditStock,computeNewStock,ensureAdjustedStockAvailable,verifiedAdjustmentReply} from '../src/lib/stockV2Client.js';
 
 const requestId='7cf18d40-0a57-4f45-af9f-fb5d478cf5a0';
@@ -120,4 +120,16 @@ test('stock browser honors reserved units and rejects malformed readback',()=>{
     {productId:'idA',quantityOnHand:10,reserved:11,quantityAvailable:-1,reorderPoint:2,version:3},
     {productId:'idA',quantityOnHand:10,reserved:4,quantityAvailable:10,reorderPoint:2,version:3}
   ])assert.throws(()=>normalizeStockResponse({items:[row]}),/invalid/);
+});
+
+test('backend stock snapshots fail closed instead of silently dropping malformed rows',()=>{
+  const first={productId:'id-one',onHand:8,reserved:3,reorderPoint:2,version:1,updatedAt:'2026-10-09T18:00:00Z'};
+  const second={productId:'id-two',onHand:2,reserved:0,reorderPoint:1,version:2,updatedAt:'2026-10-09T18:00:00Z'};
+  const rows=verifiedStockRows([first,second]);
+  assert.deepEqual(rows.map(x=>x.quantityAvailable),[5,2]);
+  assert.throws(()=>verifiedStockRows([first,{...second,reserved:undefined}]),/invalid/);
+  assert.throws(()=>verifiedStockRows([first,{...second,reserved:3}]),/invalid/);
+  assert.throws(()=>verifiedStockRows([first,first]),/duplicate/);
+  assert.throws(()=>verifiedStockRows(null),/complete list/);
+  assert.deepEqual(verifiedStockRows([]),[]);
 });
