@@ -57,6 +57,21 @@ export function stockBalance(item) {
       version:item.version,updatedAt:typeof item.updatedAt==='string'?item.updatedAt:null};
   }catch{return null;}
 }
+/**
+ * Never silently drop malformed/duplicate balances from administrative or
+ * public snapshots. Such partial reads could misrepresent inventory health.
+ */
+export function verifiedStockRows(rows) {
+  if(!Array.isArray(rows))throw Error('Stock snapshot must be a complete list.');
+  const ids=new Set();
+  return rows.map(row=>{
+    const parsed=stockBalance(row);
+    if(!parsed)throw Error('Stock snapshot contains an invalid reserved/on-hand balance.');
+    if(ids.has(parsed.productId))throw Error('Stock snapshot contains duplicate product IDs.');
+    ids.add(parsed.productId);
+    return parsed;
+  });
+}
 export function ownRecord(record,productId,request,operation) {
   if(!record||record.productId!==productId||record.operation!==operation||record.requestId!==request.requestId)return false;
   if(operation==='initialize')return record.onHand===request.onHand && record.reorderPoint===request.reorderPoint;
