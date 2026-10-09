@@ -24,7 +24,7 @@ function ProductInitial({product}) {
       <span aria-hidden="true">{(product.productName||'?').trim().charAt(0).toUpperCase()}</span>}
   </div>;
 }
-export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onNew,onArchive,onRestore,onReload,busy=false,busyId='',notice='',editorSku=null,stockStatus='unconfigured',stockBusyId='',stockInitializeEnabled=false,onStockAdjust,onStockInitialize}) {
+export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onNew,onArchive,onRestore,onReload,busy=false,busyId='',notice='',editorSku=null,stockStatus='unconfigured',stockBusyId='',stockInitializeEnabled=false,stockWritesEnabled=false,onStockAdjust,onStockInitialize}) {
   const [query,setQuery]=useState('');
   const [category,setCategory]=useState('All');
   const [view,setView]=useState('all');
@@ -161,7 +161,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
           <div><dt>Created</dt><dd>{selectedRecord.createdAt||'Unknown'}</dd></div>
         </dl>
         <div className="inv-detail-issues"><strong>Data quality</strong>{selectedIssues.length===0?<p>No known issues in the current product API response.</p>:<div>{selectedIssues.map(issue=><span key={issue} className="inv-chip inv-chip-warn">{issueLabels[issue]}</span>)}</div>}</div>
-        <StockControls key={selectedRecord.productId||selectedRecord.sku} product={selectedRecord} status={stockStatus} busy={busy||stockBusyId===selectedRecord.productId} allowInitialize={stockInitializeEnabled} onInitialize={onStockInitialize} onAdjust={onStockAdjust} onRefresh={onReload}/>
+        <StockControls key={selectedRecord.productId||selectedRecord.sku} product={selectedRecord} status={stockStatus} busy={busy||stockBusyId===selectedRecord.productId} allowInitialize={stockInitializeEnabled} allowAdjust={stockWritesEnabled} onInitialize={onStockInitialize} onAdjust={onStockAdjust} onRefresh={onReload}/>
         <div className="inv-dialog-actions">
           <button type="button" className="inv-button inv-button-light" onClick={closeRecord}>Close</button>
           <button type="button" className="inv-button inv-button-primary" disabled={busy||(!selectedRecord.productId&&isLegacy)} onClick={()=>{const record=selectedRecord;closeRecord();onEdit(record);}}>Edit this record</button>
