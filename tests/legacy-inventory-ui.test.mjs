@@ -19,6 +19,7 @@ test('legacy deletion verification checks exact record ID and rejects fake succe
   assert.equal(recordChangedOrRemoved(duplicates[0],duplicates,true),false);
   assert.equal(recordChangedOrRemoved(duplicates[0],[duplicates[1]],true),true);
   assert.equal(recordChangedOrRemoved(duplicates[0],[],true),true);
+  assert.equal(recordChangedOrRemoved(duplicates[0],[{sku:'MTG-001'}],true),false);
   assert.equal(recordChangedOrRemoved({sku:'MTG-001'},[],true),false);
   assert.equal(recordChangedOrRemoved(duplicates[0],null,true),false);
 });
