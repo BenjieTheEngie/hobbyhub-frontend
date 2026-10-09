@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {validProductId,validRequestId,nonnegativeWhole,validateAdjustment,validateInitialization,stockBalance,ownRecord,safePublicProduct,joinedPublicCatalog} from '../backend/stock-v2-logic.mjs';
-import {normalizeStockResponse,mergeVerifiedStock,canEditStock,computeNewStock,verifiedAdjustmentReply} from '../src/lib/stockV2Client.js';
+import {normalizeStockResponse,mergeVerifiedStock,canEditStock,computeNewStock,ensureAdjustedStockAvailable,verifiedAdjustmentReply} from '../src/lib/stockV2Client.js';
 
 const requestId='7cf18d40-0a57-4f45-af9f-fb5d478cf5a0';
 test('stock validation uses exact immutable productId and idempotency UUID',()=>{
@@ -29,10 +29,10 @@ test('adjustments require integer signed delta, reason, expectedVersion and idem
   assert.throws(()=>validateAdjustment({delta:2,expectedVersion:1,requestId,reason:'restock',note:'x'.repeat(161)}),/too long/);
 });
 test('stock balance refuses malformed or unknown stock data',()=>{
-  assert.equal(stockBalance({productId:'id-A',onHand:3,reorderPoint:2,version:4}).quantityOnHand,3);
-  assert.equal(stockBalance({productId:'id-A',onHand:-1,reorderPoint:2,version:4}),null);
-  assert.equal(stockBalance({productId:'id-A',onHand:0,reorderPoint:2,version:0}),null);
-  assert.equal(stockBalance({productId:'bad id',onHand:0,reorderPoint:2,version:1}),null);
+  assert.equal(stockBalance({productId:'id-A',onHand:3,reserved:0,reorderPoint:2,version:4}).quantityOnHand,3);
+  assert.equal(stockBalance({productId:'id-A',onHand:-1,reserved:0,reorderPoint:2,version:4}),null);
+  assert.equal(stockBalance({productId:'id-A',onHand:0,reserved:0,reorderPoint:2,version:0}),null);
+  assert.equal(stockBalance({productId:'bad id',onHand:0,reserved:0,reorderPoint:2,version:1}),null);
 });
 test('transaction log replay must match original mutation parameters',()=>{
   const log={requestId,productId:'id-A',operation:'adjust',delta:-1,expectedVersion:2,reason:'damage'};
@@ -41,7 +41,7 @@ test('transaction log replay must match original mutation parameters',()=>{
   assert.equal(ownRecord(log,'id-B',{requestId,delta:-1,expectedVersion:2,reason:'damage'},'adjust'),false);
 });
 test('public catalog requires published unique SKU and an actual positive stock balance',()=>{
-  const stock={productId:'pA',quantityOnHand:7,reorderPoint:2,version:1};
+  const stock={productId:'pA',quantityOnHand:7,reserved:0,reorderPoint:2,version:1};
   const base={productId:'pA',sku:'MTG-42',productName:'Play Booster',published:true,salePrice:5.99,category:'Magic: The Gathering'};
   assert.equal(safePublicProduct(base,stock).quantityOnHand,7);
   assert.equal(safePublicProduct({...base,published:false},stock),null);
@@ -60,14 +60,14 @@ test('duplicate legacy SKU groups are never made public by accident',()=>{
     {productId:'c',sku:'PKM-001',productName:'C',published:true,salePrice:9},
     {productId:'d',sku:'YGO-001',productName:'D',salePrice:5}
   ];
-  const balances=['a','b','c','d'].map(productId=>({productId,quantityOnHand:4,reorderPoint:1,version:1}));
+  const balances=['a','b','c','d'].map(productId=>({productId,quantityOnHand:4,reserved:0,reorderPoint:1,version:1}));
   const items=joinedPublicCatalog(products,balances);
   assert.deepEqual(items.map(x=>x.sku),['PKM-001']);
 });
 test('browser stock adapter joins by productId, never ambiguous SKU',()=>{
   const snap=normalizeStockResponse({items:[
-    {productId:'p1',quantityOnHand:7,reorderPoint:2,version:3},
-    {productId:'p2',quantityOnHand:0,reorderPoint:1,version:1}
+    {productId:'p1',quantityOnHand:7,reserved:0,quantityAvailable:7,reorderPoint:2,version:3},
+    {productId:'p2',quantityOnHand:0,reserved:0,quantityAvailable:0,reorderPoint:1,version:1}
   ]});
   const products=[{productId:'p1',sku:'MTG-001',stockReported:false},
     {productId:'p2',sku:'MTG-001',stockReported:false},
@@ -79,8 +79,8 @@ test('browser stock adapter joins by productId, never ambiguous SKU',()=>{
   assert.equal(canEditStock(rows[0],'unavailable'),false);
 });
 test('reject malformed stock snapshot, invalid counts and duplicate product identities',()=>{
-  assert.throws(()=>normalizeStockResponse({items:[{productId:'p1',quantityOnHand:-1,reorderPoint:0,version:1}]}),/invalid/);
-  assert.throws(()=>normalizeStockResponse({items:[{productId:'p1',quantityOnHand:1,reorderPoint:0,version:1},{productId:'p1',quantityOnHand:2,reorderPoint:0,version:1}]}),/duplicate/);
+  assert.throws(()=>normalizeStockResponse({items:[{productId:'p1',quantityOnHand:-1,reserved:0,quantityAvailable:-1,reorderPoint:0,version:1}]}),/invalid/);
+  assert.throws(()=>normalizeStockResponse({items:[{productId:'p1',quantityOnHand:1,reserved:0,quantityAvailable:1,reorderPoint:0,version:1},{productId:'p1',quantityOnHand:2,reserved:0,quantityAvailable:2,reorderPoint:0,version:1}]}),/duplicate/);
   assert.deepEqual([...normalizeStockResponse({items:[]}).entries()],[]);
 });
 test('stock adjustment UI uses safe arithmetic and exact server acknowledgment',()=>{
@@ -90,4 +90,34 @@ test('stock adjustment UI uses safe arithmetic and exact server acknowledgment',
   assert.throws(()=>computeNewStock(4,0),/limits/);
   assert.equal(verifiedAdjustmentReply({applied:true,adjustment:{requestId,afterOnHand:6}},requestId,6),true);
   assert.equal(verifiedAdjustmentReply({applied:true,adjustment:{requestId,afterOnHand:5}},requestId,6),false);
+});
+
+test('reserved inventory is mandatory and cannot exceed physical stock',()=>{
+  assert.equal(stockBalance({productId:'idA',onHand:7,reorderPoint:2,version:1}),null);
+  assert.equal(stockBalance({productId:'idA',onHand:7,reserved:8,reorderPoint:2,version:1}),null);
+  assert.equal(stockBalance({productId:'idA',onHand:7,reserved:-1,reorderPoint:2,version:1}),null);
+  const row=stockBalance({productId:'idA',onHand:7,reserved:3,reorderPoint:2,version:1});
+  assert.equal(row.reserved,3);
+  assert.equal(row.quantityAvailable,4);
+});
+test('public catalog displays only unreserved units and hides fully reserved items',()=>{
+  const item={productId:'idA',sku:'CARDS-001',productName:'Card',published:true,salePrice:5};
+  const available={productId:'idA',quantityOnHand:10,reserved:8};
+  assert.equal(safePublicProduct(item,available).quantityOnHand,2);
+  assert.equal(safePublicProduct(item,{...available,reserved:10}),null);
+  assert.equal(safePublicProduct(item,{...available,reserved:11}),null);
+  assert.equal(safePublicProduct(item,{...available,reserved:undefined}),null);
+});
+test('stock browser honors reserved units and rejects malformed readback',()=>{
+  const snap=normalizeStockResponse({items:[{productId:'idA',quantityOnHand:10,reserved:6,quantityAvailable:4,reorderPoint:2,version:3}]});
+  assert.equal(snap.get('idA').stockAvailable,4);
+  assert.equal(snap.get('idA').stockReserved,6);
+  const product={productId:'idA',quantityOnHand:10,stockReserved:6};
+  assert.equal(ensureAdjustedStockAvailable(product,-4),6);
+  assert.throws(()=>ensureAdjustedStockAvailable(product,-5),/reserved/);
+  for(const row of [
+    {productId:'idA',quantityOnHand:10,quantityAvailable:10,reorderPoint:2,version:3},
+    {productId:'idA',quantityOnHand:10,reserved:11,quantityAvailable:-1,reorderPoint:2,version:3},
+    {productId:'idA',quantityOnHand:10,reserved:4,quantityAvailable:10,reorderPoint:2,version:3}
+  ])assert.throws(()=>normalizeStockResponse({items:[row]}),/invalid/);
 });
