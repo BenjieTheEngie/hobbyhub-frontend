@@ -21,7 +21,7 @@ Implemented in `src/components/InventoryWorkspace.jsx`, `ProductEditor.jsx` and 
 - Separate indicators for unknown stock, invalid prices, zero-price placeholders and unknown publication state.
 - Read-only, local CSV audit export with original record IDs, source prices and issue labels. Spreadsheet formula cells are neutralized.
 - Reorganized product editor with controlled identity, prices, card variants, media, stock and publication fields.
-- Legacy irreversible deletion removed from the everyday UI. Do not substitute a local “archive” flag for a verified AWS write.
+- The legacy irreversible DELETE is available only inside a specific record's Review / remove inspector, behind an explicit backup/reference acknowledgment and a second typed DELETE confirmation. It addresses one productId and validates exactly one missing record after reloading. Do not use it before a recoverable backup and reference review.
 - Customer checkout stays disabled.
 
 This is a UI rebuild, **not an AWS migration**.

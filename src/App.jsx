@@ -6,7 +6,7 @@ import {SiteHeader,Storefront,ShoppingCart} from "./components/Storefront.jsx";
 import {publishedCatalog,safeSavedCart,reconcileCart,setCartQuantity} from "./lib/shop.js";
 import {apiProduct,validProduct,uploadImage} from "./lib/intake.js";
 import {inventoryForView, isArchived, normalizeInventoryResponse} from "./lib/inventoryStatus.js";
-import {productRoute, countSkuMatches, recordChangedOrRemoved, safeRecordLabel} from "./lib/legacyInventory.js";
+import {productRoute, countSkuMatches, recordChangedOrRemoved, exactLegacyDeletionConfirmed, safeRecordLabel} from "./lib/legacyInventory.js";
 
 const API_BASE_URL = "https://13bdy276e1.execute-api.us-east-2.amazonaws.com";
 const INVENTORY_API_BASE_URL = String(import.meta.env.VITE_INVENTORY_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || API_BASE_URL).replace(/\/$/, "");
@@ -88,7 +88,8 @@ async function removeProduct(product) {
   if(USE_LEGACY_PRODUCT_ROUTES) {
     const warning="Delete ONE AWS record for SKU "+sku+" (ID ends "+safeRecordLabel(product)+")?"+
       "\\n\\nThe legacy DELETE route may PERMANENTLY DELETE this record, rather than archive it."+
-      "\\n\\nOther records with this SKU will remain. Type DELETE to confirm:";
+      "\\n\\nOther records with this SKU will remain. This can affect linked inventory or purchase orders."+
+      "\\n\\nOnly proceed after backing up and checking related records. Type DELETE to confirm:";
     if(window.prompt(warning)!=="DELETE")return;
   } else if(!window.confirm("Archive "+sku+" in AWS and keep its history?"))return;
   setBusySku(USE_LEGACY_PRODUCT_ROUTES?product.productId:sku);
@@ -96,8 +97,10 @@ async function removeProduct(product) {
   try{
     await apiProduct(path,token,"DELETE");
     const after=normalizeInventoryResponse(await apiProduct("/products",token));
-    if(!recordChangedOrRemoved(product,after,USE_LEGACY_PRODUCT_ROUTES,!USE_LEGACY_PRODUCT_ROUTES))
-      throw Error("The requested record is still present without a confirmed archive.");
+    const verified=USE_LEGACY_PRODUCT_ROUTES
+      ? exactLegacyDeletionConfirmed(product,products,after)
+      : recordChangedOrRemoved(product,after,false,true);
+    if(!verified)throw Error("The API response did not verify exactly the expected change. Reload AWS inventory and check this product before trying again.");
     setProducts(after);
     if(!after.some(p=>p.sku===sku && !isArchived(p)))setCart(current=>current.filter(item=>item.sku!==sku));
     if(editingProductId===product.productId){setEditingSku(null);setEditingProductId(null);}
