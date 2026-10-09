@@ -22,7 +22,8 @@ export function normalizeOrderList(data) {
       throw Error('Order service returned an invalid or duplicate order ID.');
     ids.add(orderId);
     const amount=raw.totalCents;
-    if(!Number.isSafeInteger(amount)||amount<0||amount>1000000000)
+    const pendingCharge=amount===null && raw.paymentStatus==='PENDING' && raw.status==='RESERVED';
+    if(!pendingCharge && (!Number.isSafeInteger(amount)||amount<0||amount>1000000000))
       throw Error('Order service returned an invalid amount.');
     if(!acceptedCurrency.has(String(raw.currency||'usd').toLowerCase()))
       throw Error('Order service returned an unsupported currency.');
