@@ -36,6 +36,7 @@ These features default disabled or disconnected:
 | `VITE_PUBLIC_CATALOG_URL` | Public verified catalog read endpoint, HTTPS URL |
 | `VITE_INVENTORY_API_BASE_URL` | Upgraded product inventory API; do **not** set to legacy productId API |
 | `VITE_STOCK_API_BASE_URL` | Isolated Stock V2 API root, not the `/stock` path |
+| `VITE_LEGACY_STOCK_READ_API_BASE_URL` | Isolated authenticated original Inventory read-only admin API root; no writes or reservations |
 | `VITE_ENABLE_STOCK_WRITES` | Requires literal `true`, and separate backend authorization |
 | `VITE_ENABLE_STOCK_INITIALIZATION` | Requires literal `true`; separate approval for opening balances |
 | `VITE_ORDER_OPS_API_BASE_URL` | Isolated read-only authenticated customer order API root |
