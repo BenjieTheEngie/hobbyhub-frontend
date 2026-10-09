@@ -50,7 +50,7 @@ jobs:
               # Suppress ONLY this known warning in the old, still-disabled
               # media add-on; enforce every other lint finding.
               sam validate --template-file "${template}"
-              cfn-lint --ignore-checks W1028 "${template}"
+              cfn-lint --template "${template}" --ignore-checks W1028
             else
               sam validate --lint --template-file "${template}"
             fi
