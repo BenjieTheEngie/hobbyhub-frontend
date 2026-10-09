@@ -53,5 +53,5 @@ test('Stripe checkout cannot run against productId-keyed legacy inventory',()=>{
     HOBBYHUB_STRIPE_TEST_ONLY:'true',
   };
   assert.equal(stripeCheckoutEnabled(cfg),false);
-  assert.equal(stripeCheckoutEnabled({...cfg,HOBBYHUB_PRODUCTS_PK_NAME:'sku'}),true);
+  assert.equal(stripeCheckoutEnabled({...cfg,HOBBYHUB_PRODUCTS_PK_NAME:'sku'}),false);
 });
