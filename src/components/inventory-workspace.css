@@ -118,3 +118,21 @@
 .inv-workspace button.inv-delete-button:hover:not(:disabled){background:#95202d;box-shadow:none;transform:none}
 .inv-workspace button.inv-delete-button:disabled{background:#e8dcde;color:#a39497;cursor:not-allowed;box-shadow:none}
 .inv-legacy-delete>small{font-size:11px;line-height:1.5;color:#995c64}
+
+/* Opt-in stock controls: never masquerade unknown counts as a zero balance. */
+.inv-workspace .inv-stock-low{display:block;color:#a85f22;font-size:10px;margin-top:5px;font-weight:700}
+.hh-stock-controls{display:grid;gap:13px;margin-top:19px;padding:17px;border:1px solid #dbe6f5;border-radius:12px;background:#f8faff}
+.hh-stock-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.hh-stock-heading>strong{font-size:13px;color:#23497e}
+.hh-stock-controls p{margin:0;color:#677b99;font-size:12px;line-height:1.7}
+.hh-stock-unknown{display:grid;gap:10px;padding:13px;border:1px dashed #e0c996;background:#fff9eb;border-radius:10px}
+.hh-stock-unknown>strong{font-size:12px;color:#9b6018}
+.hh-stock-controls form{display:grid;gap:12px;margin:0}
+.hh-stock-controls form>label,.hh-stock-inputs label{display:grid;gap:5px;color:#4e6486;font-size:11px;font-weight:800}
+.hh-stock-controls input,.hh-stock-controls select{width:100%;min-width:0;height:40px;padding:9px 10px;background:#fff;border:1px solid #d6e1f1;border-radius:8px;color:#284466;font-size:12px}
+.hh-stock-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.hh-stock-balance{display:flex;align-items:baseline;flex-wrap:wrap;gap:9px;padding:11px;background:#edf4ff;border-radius:9px}
+.hh-stock-balance>span{font-size:11px;color:#59729b;font-weight:750}
+.hh-stock-balance strong{font-size:26px;color:#23519d}
+.hh-stock-balance small{font-size:11px;color:#6b809f}
+@media(max-width:550px){.hh-stock-inputs{grid-template-columns:1fr}}

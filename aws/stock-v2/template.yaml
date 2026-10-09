@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 'Hobby Hub Inventory V2 isolated stock and read-only catalog (does NOT migrate or edit existing DynamoDB tables)'
+Parameters:
+  ExistingProductsTable:
+    Type: String
+    Default: hobbyhub-ProductsTable-KC31XDEOENBG
+    Description: Verified Products table. Must use productId String HASH key. Do not deploy if different.
+  CognitoUserPoolId:
+    Type: String
+    Description: Existing user pool in us-east-2.
+  CognitoClientId:
+    Type: String
+    Description: Existing Cognito public app client ID for JWT audience.
+  FrontendOrigin:
+    Type: String
+    Default: https://hobbyhub.company
+  AdminGroupName:
+    Type: String
+    Default: hobbyhub-admin
+  AllowedAdminSubs:
+    Type: String
+    Default: ''
+  EnableStockWrites:
+    Type: String
+    AllowedValues: ['true','false']
+    Default: 'false'
+    Description: Enable only after reviewing real AWS Inventory records and staging checks.
+  EnableStockInitialization:
+    Type: String
+    AllowedValues: ['true','false']
+    Default: 'false'
+    Description: Separately authorize opening balances only after verifying original inventory quantities and references.
+Resources:
+  StockV2Table:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      AttributeDefinitions:
+        - {AttributeName: productId, AttributeType: S}
+      KeySchema:
+        - {AttributeName: productId, KeyType: HASH}
+      SSESpecification: {SSEEnabled: true}
+  StockV2AuditTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      AttributeDefinitions:
+        - {AttributeName: requestId, AttributeType: S}
+      KeySchema:
+        - {AttributeName: requestId, KeyType: HASH}
+      SSESpecification: {SSEEnabled: true}
+  StockApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: [!Ref FrontendOrigin]
+        AllowMethods: [GET, POST, OPTIONS]
+        AllowHeaders: [authorization, content-type]
+        MaxAge: 600
+      Auth:
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              audience: [!Ref CognitoClientId]
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
+  StockFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: stock-v2.stockV2Handler
+      Runtime: nodejs22.x
+      Timeout: 25
+      MemorySize: 256
+      Environment:
+        Variables:
+          HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
+          HOBBYHUB_STOCK_V2_TABLE: !Ref StockV2Table
+          HOBBYHUB_STOCK_V2_AUDIT_TABLE: !Ref StockV2AuditTable
+          HOBBYHUB_STOCK_V2_WRITES_ENABLED: !Ref EnableStockWrites
+          HOBBYHUB_STOCK_V2_INIT_ENABLED: !Ref EnableStockInitialization
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+          HOBBYHUB_ADMIN_GROUP: !Ref AdminGroupName
+          HOBBYHUB_ALLOWED_ADMIN_SUBS: !Ref AllowedAdminSubs
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:GetItem]
+              Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
+            - Effect: Allow
+              Action: [dynamodb:GetItem, dynamodb:Scan, dynamodb:PutItem, dynamodb:UpdateItem]
+              Resource:
+                - !GetAtt StockV2Table.Arn
+                - !GetAtt StockV2AuditTable.Arn
+      Events:
+        ListStock:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref StockApi
+            Method: GET
+            Path: /stock
+            Auth: {Authorizer: CognitoJwt}
+        GetStock:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref StockApi
+            Method: GET
+            Path: /stock/{productId}
+            Auth: {Authorizer: CognitoJwt}
+        Initialize:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref StockApi
+            Method: POST
+            Path: /stock/{productId}/initialize
+            Auth: {Authorizer: CognitoJwt}
+        Adjust:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref StockApi
+            Method: POST
+            Path: /stock/{productId}/adjust
+            Auth: {Authorizer: CognitoJwt}
+  PublicCatalogFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: catalog-v2.catalogV2Handler
+      Runtime: nodejs22.x
+      Timeout: 25
+      MemorySize: 256
+      Environment:
+        Variables:
+          HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
+          HOBBYHUB_STOCK_V2_TABLE: !Ref StockV2Table
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:Scan]
+              Resource:
+                - !GetAtt StockV2Table.Arn
+                - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
+      Events:
+        PublicCatalog:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref StockApi
+            Method: GET
+            Path: /catalog
+Outputs:
+  StockApiUrl:
+    Description: JWT-protected stock API origin; configure VITE_STOCK_API_BASE_URL only after staging verification.
+    Value: !Sub 'https://${StockApi}.execute-api.${AWS::Region}.amazonaws.com'
+  PublicCatalogUrl:
+    Description: Read-only storefront API (requires verified published records and new stock balances).
+    Value: !Sub 'https://${StockApi}.execute-api.${AWS::Region}.amazonaws.com/catalog'
+  StockTableName:
+    Value: !Ref StockV2Table
+  AuditTableName:
+    Value: !Ref StockV2AuditTable

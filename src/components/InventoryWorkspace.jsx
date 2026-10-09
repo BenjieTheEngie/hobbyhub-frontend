@@ -2,12 +2,13 @@ import React,{useMemo,useState,useEffect} from 'react';
 import {INVENTORY_VIEWS,inventorySummary,inventorySearch,inventoryAuditCsv,productIssues,skuCounts,recordKey,money} from '../lib/inventoryAnalytics.js';
 import {isArchived} from '../lib/inventoryStatus.js';
 import {safeRecordLabel} from '../lib/legacyInventory.js';
+import StockControls from './StockControls.jsx';
 import './inventory-workspace.css';
 
 const issueLabels={
   'duplicate-sku':'Duplicate SKU','unknown-stock':'Stock unknown',
   'invalid-price':'Invalid price','zero-price':'Zero price','missing-sku':'Missing SKU',
-  'missing-name':'Missing name','missing-identity':'ID missing',
+  'missing-name':'Missing name','missing-identity':'ID missing','low-stock':'Low stock',
 };
 function downloadAudit(records) {
   const csv=inventoryAuditCsv(records);
@@ -23,7 +24,7 @@ function ProductInitial({product}) {
       <span aria-hidden="true">{(product.productName||'?').trim().charAt(0).toUpperCase()}</span>}
   </div>;
 }
-export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onNew,onArchive,onRestore,onReload,busy=false,busyId='',notice='',editorSku=null}) {
+export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onNew,onArchive,onRestore,onReload,busy=false,busyId='',notice='',editorSku=null,stockStatus='unconfigured',stockBusyId='',stockInitializeEnabled=false,stockWritesEnabled=false,onStockAdjust,onStockInitialize}) {
   const [query,setQuery]=useState('');
   const [category,setCategory]=useState('All');
   const [view,setView]=useState('all');
@@ -91,13 +92,14 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
       <div className="inv-stat"><span>Unique SKU labels</span><strong>{summary.uniqueSkus}</strong><small>Not individual product IDs</small></div>
       <div className="inv-stat inv-stat-alert"><span>Needs review</span><strong>{summary.review}</strong><small>Records with data warnings</small></div>
       <div className="inv-stat"><span>Duplicate SKU groups</span><strong>{summary.duplicateSkus}</strong><small>{summary.unknownStock} unknown-stock records</small></div>
+      <div className="inv-stat"><span>Low stock</span><strong>{summary.lowStock}</strong><small>Verified counts at or below reorder points</small></div>
     </div>
 
     <div className="inv-body">
       <div className="inv-side" aria-label="Inventory views">
         <div className="inv-side-title">WORKSPACES</div>
         {INVENTORY_VIEWS.map(([key,label])=>{
-          const total=key==='all'?summary.records:key==='review'?summary.review:key==='duplicates'?products.filter(p=>(counts.get(String(p.sku||'').toLowerCase())||0)>1).length:key==='missing-stock'?summary.unknownStock:key==='invalid-price'?summary.priceIssues:summary.archived;
+          const total=key==='all'?summary.records:key==='review'?summary.review:key==='duplicates'?products.filter(p=>(counts.get(String(p.sku||'').toLowerCase())||0)>1).length:key==='missing-stock'?summary.unknownStock:key==='low-stock'?summary.lowStock:key==='invalid-price'?summary.priceIssues:summary.archived;
           return <button type="button" key={key} className={'inv-view '+(view===key?'inv-view-active':'')} aria-pressed={view===key} onClick={()=>setView(key)}><span>{label}</span><span className="inv-view-count">{total}</span></button>;
         })}
         <div className="inv-side-divider"/>
@@ -107,7 +109,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
             <span>{group.sku}</span><b>{group.count} records</b>
           </button>)}
         <div className="inv-side-divider"/>
-        <div className="inv-help-box"><strong>About stock</strong><p>{isLegacy?'Product records do not currently include verified stock. The separate Inventory table must be mapped before quantities can be edited.':'Stock changes require confirmation from the inventory API.'}</p></div>
+        <div className="inv-help-box"><strong>About stock</strong><p>{stockStatus==='ready'?'Connected to versioned stock balances keyed by productId. Open a record to review or adjust quantities.':'Stock adjustments use a separate verified service. Legacy product edits and removal stay unchanged until it is connected.'}</p></div>
       </div>
       <div className="inv-main">
         <div className="inv-toolbar">
@@ -130,7 +132,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
                 <td><div className="inv-product-cell"><ProductInitial product={p}/><div><strong>{p.productName||'Unnamed record'}</strong><small>SKU: {p.sku||'Missing'} · {p.productId?safeRecordLabel(p):'ID unverified'}</small><small>{p.createdAt?'Created '+p.createdAt.slice(0,10):'Date not reported'}</small></div></div></td>
                 <td><span className="inv-cell-category">{p.category||'Uncategorized'}</span></td>
                 <td><strong className={p.priceInvalid?'inv-bad-price':''}>{p.priceInvalid?'Review: '+String(p.rawSalePrice??p.salePrice):money(p.salePrice)}</strong></td>
-                <td>{p.stockReported===true?<b className="inv-stock">{p.quantityOnHand}</b>:<span className="inv-muted-status">Not reported</span>}</td>
+                <td>{p.stockReported===true?<div><b className="inv-stock">{p.quantityOnHand}</b>{p.reorderPoint>0&&p.quantityOnHand<=p.reorderPoint&&<small className="inv-stock-low">Low · reorder at {p.reorderPoint}</small>}</div>:<span className="inv-muted-status">Not verified</span>}</td>
                 <td><div className="inv-issue-stack">{archived&&<span className="inv-chip inv-chip-neutral">Archived</span>}{issues.slice(0,2).map(issue=><span key={issue} className={'inv-chip '+(issue==='duplicate-sku'||issue==='invalid-price'?'inv-chip-danger':'inv-chip-warn')}>{issueLabels[issue]}</span>)}{issues.length>2&&<small>+{issues.length-2} more</small>}{!issues.length&&!archived&&<span className="inv-chip inv-chip-ok">No flagged issues</span>}</div></td>
                 <td><div className="inv-cell-actions"><button type="button" className="inv-button inv-button-light" onClick={()=>openRecord(p)}>{isLegacy?"Review / remove":"Review"}</button></div></td>
               </tr>;
@@ -159,6 +161,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
           <div><dt>Created</dt><dd>{selectedRecord.createdAt||'Unknown'}</dd></div>
         </dl>
         <div className="inv-detail-issues"><strong>Data quality</strong>{selectedIssues.length===0?<p>No known issues in the current product API response.</p>:<div>{selectedIssues.map(issue=><span key={issue} className="inv-chip inv-chip-warn">{issueLabels[issue]}</span>)}</div>}</div>
+        <StockControls key={selectedRecord.productId||selectedRecord.sku} product={selectedRecord} status={stockStatus} busy={busy||stockBusyId===selectedRecord.productId} allowInitialize={stockInitializeEnabled} allowAdjust={stockWritesEnabled} onInitialize={onStockInitialize} onAdjust={onStockAdjust} onRefresh={onReload}/>
         <div className="inv-dialog-actions">
           <button type="button" className="inv-button inv-button-light" onClick={closeRecord}>Close</button>
           <button type="button" className="inv-button inv-button-primary" disabled={busy||(!selectedRecord.productId&&isLegacy)} onClick={()=>{const record=selectedRecord;closeRecord();onEdit(record);}}>Edit this record</button>

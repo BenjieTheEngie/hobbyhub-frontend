@@ -7,10 +7,14 @@ import {publishedCatalog,safeSavedCart,reconcileCart,setCartQuantity} from "./li
 import {apiProduct,validProduct,uploadImage} from "./lib/intake.js";
 import {inventoryForView, isArchived, normalizeInventoryResponse} from "./lib/inventoryStatus.js";
 import {productRoute, countSkuMatches, recordChangedOrRemoved, exactLegacyDeletionConfirmed, safeRecordLabel} from "./lib/legacyInventory.js";
+import {stockRequest,normalizeStockResponse,mergeVerifiedStock,canEditStock,computeNewStock,verifiedAdjustmentReply} from "./lib/stockV2Client.js";
 
 const API_BASE_URL = "https://13bdy276e1.execute-api.us-east-2.amazonaws.com";
 const INVENTORY_API_BASE_URL = String(import.meta.env.VITE_INVENTORY_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || API_BASE_URL).replace(/\/$/, "");
 const USE_LEGACY_PRODUCT_ROUTES = !String(import.meta.env.VITE_INVENTORY_API_BASE_URL || "").trim();
+const STOCK_V2_API_BASE_URL = String(import.meta.env.VITE_STOCK_API_BASE_URL||"").trim().replace(/\/$/, "");
+const ALLOW_STOCK_INITIALIZATION = import.meta.env.VITE_ENABLE_STOCK_INITIALIZATION === "true";
+const ALLOW_STOCK_WRITES = import.meta.env.VITE_ENABLE_STOCK_WRITES === "true";
 const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
 const COGNITO_REGION = "us-east-2";
 
@@ -31,6 +35,8 @@ export default function HobbyHubFrontend() {
   const [showArchived, setShowArchived] = useState(false);
   const [busySku, setBusySku] = useState("");
   const [inventoryNotice, setInventoryNotice] = useState("");
+  const [stockStatus,setStockStatus] = useState(STOCK_V2_API_BASE_URL?"loading":"unconfigured");
+  const [stockBusyId,setStockBusyId] = useState("");
   useEffect(()=>{
     const url=String(import.meta.env.VITE_PUBLIC_CATALOG_URL||"").trim();
     if(!/^https:\/\//.test(url)){setPublicStatus("coming-soon");return;}
@@ -215,10 +221,66 @@ async function updateStock(product,quantity) {
 
   async function loadProducts() {
     const data = await apiRequest("/products");
-    if (data) {
-      setProducts(normalizeInventoryResponse(data));
+    if (!data)return {status:"failed",products:[]};
+    const base=normalizeInventoryResponse(data);
+    if(!STOCK_V2_API_BASE_URL){
+      setProducts(base);
+      setStockStatus("unconfigured");
       setMessage("Products loaded.");
+      return {status:"unconfigured",products:base};
     }
+    setStockStatus("loading");
+    try{
+      const snapshot=normalizeStockResponse(await stockRequest(STOCK_V2_API_BASE_URL,token,"/stock"));
+      const merged=mergeVerifiedStock(base,snapshot);
+      setProducts(merged);
+      setStockStatus("ready");
+      setMessage("Products and verified stock loaded.");
+      return {status:"ready",products:merged};
+    }catch(e){
+      setProducts(base.map(p=>({...p,quantityOnHand:0,stockReported:false,stockSource:"unavailable",stockVersion:null})));
+      setStockStatus("unavailable");
+      setMessage("Products loaded, but stock verification is unavailable: "+e.message);
+      return {status:"unavailable",products:base};
+    }
+  }
+  async function changeVerifiedStock(product,{delta,reason,note=""}){
+    if(!ALLOW_STOCK_WRITES||!canEditStock(product,stockStatus)||!STOCK_V2_API_BASE_URL)throw Error("Stock writes are disabled until the new API is approved.");
+    const after=computeNewStock(product.quantityOnHand,delta);
+    const requestId=window.crypto.randomUUID();
+    setStockBusyId(product.productId);
+    try{
+      const response=await stockRequest(STOCK_V2_API_BASE_URL,token,"/stock/"+encodeURIComponent(product.productId)+"/adjust","POST",{
+        delta,expectedVersion:product.stockVersion,requestId,reason,note
+      });
+      if(!verifiedAdjustmentReply(response,requestId,after))throw Error("AWS did not confirm the exact requested adjustment. Refresh before retrying.");
+      const refreshed=await loadProducts();
+      if(refreshed.status!=="ready")throw Error("AWS acknowledged the change but a fresh stock read failed. Do not submit it again until refreshed.");
+      const current=refreshed.products.find(p=>p.productId===product.productId);
+      if(!current?.stockReported || current.stockVersion<=product.stockVersion ||
+        (current.stockVersion===product.stockVersion+1 && current.quantityOnHand!==after))
+        throw Error("Stock changed again or the verified quantity differs. Review the current balance.");
+      setInventoryNotice("Verified "+(delta>0?"+":"")+delta+" units for "+product.sku+"; current balance "+current.quantityOnHand+".");
+      return current;
+    }finally{setStockBusyId("");}
+  }
+  async function initializeVerifiedStock(product,{onHand,reorderPoint,reason,note=""}){
+    if(!ALLOW_STOCK_WRITES||!ALLOW_STOCK_INITIALIZATION||stockStatus!=="ready"||!STOCK_V2_API_BASE_URL||!product?.productId)throw Error("New opening balances are not enabled.");
+    if(product.stockReported===true)throw Error("This product already has a verified balance.");
+    const requestId=window.crypto.randomUUID();
+    setStockBusyId(product.productId);
+    try{
+      const response=await stockRequest(STOCK_V2_API_BASE_URL,token,"/stock/"+encodeURIComponent(product.productId)+"/initialize","POST",{
+        onHand,reorderPoint,requestId,reason,note
+      });
+      if(!verifiedAdjustmentReply(response,requestId,onHand))throw Error("Opening balance could not be confirmed.");
+      const refreshed=await loadProducts();
+      const current=refreshed.products.find(p=>p.productId===product.productId);
+      if(refreshed.status!=="ready"||!current?.stockReported||current.quantityOnHand!==onHand)
+        throw Error("AWS acknowledged initialization but the new count could not be verified. Refresh without retrying.");
+      setInventoryNotice("Opening balance verified: "+onHand+" units for "+product.sku+".");
+      return current;
+    }finally{setStockBusyId("");}
   }
 
   async function createProduct() {
@@ -294,7 +356,7 @@ async function updateStock(product,quantity) {
               />
               {!token?<button className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white" onClick={login}>
                 Login with Cognito
-              </button>:<button type="button" className="logout-button" onClick={()=>{setToken("");setPassword("");setProducts([]);setDashboard(null);setMessage("Signed out.");}}>Sign out of Admin Tools</button>}
+              </button>:<button type="button" className="logout-button" onClick={()=>{setToken("");setPassword("");setProducts([]);setDashboard(null);setStockStatus(STOCK_V2_API_BASE_URL?"loading":"unconfigured");setMessage("Signed out.");}}>Sign out of Admin Tools</button>}
               <button type="button" onClick={() => setShowPasswordRecovery(true)} style={{ background: "#e2e8f0", color: "#1e293b", maxWidth: "100%", whiteSpace: "normal" }}>
                 Forgot password / Reset password
               </button>
@@ -346,6 +408,12 @@ async function updateStock(product,quantity) {
   busyId={busySku}
   notice={inventoryNotice}
   editorSku={editingSku}
+  stockStatus={stockStatus}
+  stockBusyId={stockBusyId}
+  stockInitializeEnabled={ALLOW_STOCK_WRITES&&ALLOW_STOCK_INITIALIZATION}
+  stockWritesEnabled={ALLOW_STOCK_WRITES}
+  onStockAdjust={changeVerifiedStock}
+  onStockInitialize={initializeVerifiedStock}
 />
 
 {token && <IntakePanel token={token} products={products} onFill={(data)=>{
