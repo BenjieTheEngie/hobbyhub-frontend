@@ -25,6 +25,9 @@ export function recordChangedOrRemoved(original, latest, legacy = true, expectAr
   if (!Array.isArray(latest)) return false;
   const identity=productIdentity(original,legacy);
   if(!identity)return false;
+  // A legacy GET response which strips productId cannot prove a specific
+  // record disappeared. Refuse to report success in that case.
+  if(legacy && latest.length>0 && latest.some(p=>!productIdentity(p,true)))return false;
   const record=latest.find(p=>p?.[identity.field]===identity.id);
   if(!record) return true; // Permanent deletion verified by read-after-write.
   if(!expectArchive)return false; // Legacy DELETE is not assumed to archive.
