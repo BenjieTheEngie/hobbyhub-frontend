@@ -1,6 +1,6 @@
 # Hobby Hub — project handoff / restart guide
 
-> **Last checked:** 2026-10-09. Intended as a durable reference for continuing development in a **new ChatGPT conversation** when the original chat becomes too long.
+> **Last checked:** 2026-10-09, including newer GitHub commits through `c7c801f6`. Intended as a durable reference for continuing development in a **new ChatGPT conversation** when the original chat becomes too long.
 >
 > **Authoritative source:** GitHub repository `BenjieTheEngie/hobbyhub-frontend`, branch `main`. Do not rely on this document instead of checking current GitHub commits, CI results and actual AWS resources before changes.
 
@@ -59,7 +59,7 @@ Repository: **https://github.com/BenjieTheEngie/hobbyhub-frontend**
 - Checkout V2: `backend/checkout-v2-core.mjs`, server-verified immutable `productId`, SKU uniqueness, strict positive price and stock checks, pure reservation transaction plans. **Not a live handler**, not a payment service.
 - Shipping: `backend/shipping-v2.mjs`, `backend/carrier-rating-v2.mjs`, `backend/easypost-test-rates.mjs`, `backend/carrier-checkout-preview.mjs`, `backend/fulfillment-v2.mjs`; U.S.-only rules, merchant-measured parcel dimensions/weights, test-only carrier quotes, paid-only pure fulfillment state transition plans. Still no real Stripe or postage purchases.
 - Optional admin-only test rate preview: `backend/carrier-rate-preview.mjs`, `aws/carrier-preview/template.yaml`, `src/components/CarrierRatePreview.jsx`; AWS Secrets Manager reference and backend preview flag default OFF. Not connected to live shipping.
-- Latest Stock V2 hardening via **PR #27**: `verifiedStockRows` rejects malformed/duplicate `productId` stock records instead of silently dropping them from admin/public snapshots. Merged after GitHub frontend and AWS offline tests plus successful Vercel preview checks.
+- Stock V2 hardening via **PR #27**: `verifiedStockRows` rejects malformed/duplicate `productId` stock records instead of silently dropping them from admin/public snapshots. This was an earlier milestone; further work has since merged (see below).
 
 ### Recent merged PRs
 
@@ -78,7 +78,31 @@ Repository: **https://github.com/BenjieTheEngie/hobbyhub-frontend**
 - PR #26: optional read-only legacy Inventory admin bridge
 - PR #27: fail-closed Stock V2 snapshot integrity checks
 
-All were merged to `main` in prior work; check current GitHub state/CI before further action.
+These are earlier milestones. **Seventeen more main-branch commits** after #27 are summarized above (the latest observed was `c7c801f6`). Check current GitHub state/CI for any later changes before further action.
+
+## Important: additional main-branch work AFTER PR #27
+
+A live GitHub commit search on **2026-10-09** returned the following **newer main-branch commits**, not included in the earlier PR #14–#27 list. They are **source work**, and do NOT imply corresponding AWS deployments or payment activation. Re-read the actual current code and docs before starting an implementation, to avoid duplicating features or reintroducing unsafe assumptions.
+
+1. `ba24784c` — offline idempotent **paid capture and terminal stock reservation release** plans; not an active Stripe or DynamoDB executor.
+2. `7d6e69a2` — admin read-only **publication-readiness** audit and safe public listing checklist.
+3. `36743c8a` — offline **checkout request idempotency ledger** and conditional unpaid reservation-expiry release plans, with honest expired-order display.
+4. `721b3971` — strict, all-or-nothing **local packaging worksheet CSV import**, so browser-only measurements can be moved between devices after user review; not AWS shipping-profile authority.
+5. `131f829f` — isolated **versioned/audited server shipping-profile draft** and default-off JWT-admin API design; separate from original products and payment flow.
+6. `1672707b` — offline replay-safe, provider-verified **Stripe webhook reconciliation** decision planner; no live payment processing.
+7. `98b467ff` — public catalog requires original **ACTIVE** status and valid integer-cent price.
+8. `fda8261d` — safe **public SKU to immutable productId checkout resolver**, preserving ambiguous-SKU exclusion; still no customer payment endpoint.
+9. `ff53c4c5` — offline signed Stripe **test-mode event/idempotency blueprint**; not a live webhook or permission to mark orders paid.
+10. `fa7d5f74` — unknown stock stays **unknown rather than zero**, and low-stock alerts use available units.
+11. `65aad09c` — AWS SAM stack offline build/lint CI, and backend package version packaging fix.
+12. `e5d8c18c` — Cognito **fail-closed admin authorization tests** and least-privilege staging guide.
+13. `e5b3a7f0` — CI validations for **all six AWS SAM infrastructure templates** without live cloud mutations.
+14. `039bc02b` — richer read-only **catalog and carrier checkout launch blockers** in admin.
+15. `34f3bdfb` — **separate fingerprint-matched publication approval** table design; legacy Products records remain unchanged by this authorization.
+16. `9521043e` — default-off **audited admin catalog approval/revocation** workflow and admin review UI, with optimistic concurrency and duplicate SKU protection.
+17. `c7c801f6` — AWS SAM **conditional IAM write policies** so Stock V2/catalog mutating permissions depend on explicit feature-enable flags. This was the newest main-branch commit returned immediately before this handoff PR.
+
+**Do not assume any of these features are active in AWS or that a passing frontend build permits checkout.** Check `main`, Vercel alias, stack list, Lambda function list, IAM, and actual environment variables first. A branch/commit is not a live cloud deployment.
 
 ## Current outstanding roadmap (priority order)
 
