@@ -56,3 +56,11 @@ An expired unpaid order is represented in the read-only operations panel as **EX
 Test locally with `node --test tests/checkout-reservations-v2.test.mjs tests/order-workbench.test.mjs`.
 
 **Webhook decision model:** `backend/payment-webhook-review.mjs` is an offline fail-closed Stripe test-event evaluator only. It checks session/order/amount identities, durable replay fingerprints and late-event disposition, but can never mark an order paid, capture stock or accept money. See `docs/PAYMENT_WEBHOOK_RECONCILIATION.md`.
+
+## Storefront SKU → immutable Products productId bridge
+
+`backend/checkout-sku-resolver.mjs` converts the **current SKU-only, browser-local cart** to the new server-only `{productId,qty}` checkout intent. It requires the checkout backend to supply a **complete, strongly consistent scan of the original Products table**, never a product collection sent by the customer. Every SKU must be globally unique case-insensitively, including unpublished duplicates. Products must have `published:true`, `status:'ACTIVE'`, and no archive flag. Client-supplied prices, shipping choices, private IDs, publication or rates are refused.
+
+The converted intent is passed through the existing productId checkout validator; **stock, official prices, carrier packaging, taxes, and Stripe status still require independent server-side verification**. The conversion performs no AWS request, inventory reservation or Stripe action on its own. In the current AWS baseline, all seven records **lack explicit publication approval**, so a real checkout must remain unavailable until the owner intentionally reviews and approves listings. Do not bypass this gate.
+
+A future controlled customer checkout endpoint must independently collect the authoritative Products + Stock V2 snapshots, check a complete unique SKU index, and persist an expiring quote tied to the immutable productId. **Do not reactivate the legacy `backend/checkout.mjs`**: it still assumes `sku` is the physical DynamoDB product key, which is incorrect.
