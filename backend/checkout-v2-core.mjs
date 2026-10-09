@@ -91,7 +91,8 @@ export function buildReservationTransactions(quote,{stockTable,orderTable,orderI
   if(quote.shippingMethod!=='domestic_shipping'||quote.shippingCountry!=='US'||
      quote.pickupAvailable!==false || !['contiguous','alaska','hawaii'].includes(quote.shippingRegion) ||
      !Number.isSafeInteger(quote.shippingCents)||quote.shippingCents<0||quote.shippingCents>50000 ||
-     quote.taxCents!==null || quote.totalCents!==null)
+     quote.taxCents!==null || quote.totalCents!==null ||
+     quote.preTaxCents!==quote.subtotalCents+quote.shippingCents)
     throw Error('Approved U.S. shipping estimate required; tax and charge total must remain pending.');
   const stockWrites=quote.items.map(item=>({
     Update:{
