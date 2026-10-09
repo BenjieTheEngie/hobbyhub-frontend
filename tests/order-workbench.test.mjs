@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeOrderList,orderStats,selectOrders,centsUsd} from '../src/lib/orderOps.js';
+import {normalizeOrderList,orderStats,selectOrders,centsUsd,orderTotalLabel} from '../src/lib/orderOps.js';
 
 const rows=[
   {orderId:'order-00001',createdAt:'2026-10-07T12:00:00Z',totalCents:1199,currency:'usd',
@@ -64,4 +64,16 @@ test('unpaid reserved orders may have a pending tax/shipping total, never a fabr
   assert.equal(centsUsd(rows[0].totalCents),'Amount unavailable');
   assert.throws(()=>normalizeOrderList({items:[{...pending,paymentStatus:'PAID'}]}),/invalid amount/);
   assert.throws(()=>normalizeOrderList({items:[{...pending,status:'PAID'}]}),/invalid amount/);
+});
+
+test('verified expired checkout reservations appear as uncharged, not awaiting payment',()=>{
+  const expired={orderId:'expired-001',status:'EXPIRED',paymentStatus:'EXPIRED',
+    fulfillmentStatus:'CANCELLED',currency:'usd',totalCents:null,items:[{qty:1,sku:'ITEM'}]};
+  const rows=normalizeOrderList({items:[expired]});
+  assert.equal(rows[0].paymentStatus,'EXPIRED');
+  assert.equal(orderTotalLabel(rows[0]),'Not charged (expired)');
+  assert.equal(orderStats(rows).awaitingPayment,0);
+  assert.deepEqual(selectOrders(rows,{status:'expired'}).map(o=>o.orderId),['expired-001']);
+  assert.throws(()=>normalizeOrderList({items:[{...expired,paymentStatus:'PAID'}]}),/invalid amount/);
+  assert.throws(()=>normalizeOrderList({items:[{...expired,fulfillmentStatus:'DELIVERED'}]}),/invalid amount/);
 });
