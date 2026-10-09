@@ -36,6 +36,12 @@ Parameters:
     AllowedValues: ['true','false']
     Default: 'false'
     Description: Separately authorize opening balances only after verifying original inventory quantities and references.
+Conditions:
+  StockWritesActive: !Equals [!Ref EnableStockWrites, 'true']
+  StockInitActive: !And
+    - !Condition StockWritesActive
+    - !Equals [!Ref EnableStockInitialization, 'true']
+  CatalogWritesActive: !Equals [!Ref EnableCatalogApprovalWrites, 'true']
 Resources:
   StockV2Table:
     Type: AWS::DynamoDB::Table
@@ -112,10 +118,29 @@ Resources:
               Action: [dynamodb:GetItem]
               Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
             - Effect: Allow
-              Action: [dynamodb:GetItem, dynamodb:Scan, dynamodb:PutItem, dynamodb:UpdateItem]
-              Resource:
-                - !GetAtt StockV2Table.Arn
-                - !GetAtt StockV2AuditTable.Arn
+              Action: [dynamodb:GetItem, dynamodb:Scan]
+              Resource: !GetAtt StockV2Table.Arn
+            - Effect: Allow
+              Action: [dynamodb:GetItem]
+              Resource: !GetAtt StockV2AuditTable.Arn
+            - Effect: Allow
+              Action: !If
+                - StockWritesActive
+                - [dynamodb:UpdateItem]
+                - [dynamodb:GetItem]
+              Resource: !GetAtt StockV2Table.Arn
+            - Effect: Allow
+              Action: !If
+                - StockWritesActive
+                - [dynamodb:PutItem]
+                - [dynamodb:GetItem]
+              Resource: !GetAtt StockV2AuditTable.Arn
+            - Effect: Allow
+              Action: !If
+                - StockInitActive
+                - [dynamodb:PutItem]
+                - [dynamodb:GetItem]
+              Resource: !GetAtt StockV2Table.Arn
       Events:
         ListStock:
           Type: HttpApi
@@ -168,10 +193,22 @@ Resources:
               Action: [dynamodb:GetItem, dynamodb:Scan]
               Resource: !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
             - Effect: Allow
-              Action: [dynamodb:GetItem, dynamodb:Scan, dynamodb:PutItem]
+              Action: [dynamodb:GetItem, dynamodb:Scan]
               Resource: !GetAtt CatalogApprovalTable.Arn
             - Effect: Allow
-              Action: [dynamodb:GetItem, dynamodb:PutItem]
+              Action: [dynamodb:GetItem]
+              Resource: !GetAtt StockV2AuditTable.Arn
+            - Effect: Allow
+              Action: !If
+                - CatalogWritesActive
+                - [dynamodb:PutItem]
+                - [dynamodb:GetItem]
+              Resource: !GetAtt CatalogApprovalTable.Arn
+            - Effect: Allow
+              Action: !If
+                - CatalogWritesActive
+                - [dynamodb:PutItem]
+                - [dynamodb:GetItem]
               Resource: !GetAtt StockV2AuditTable.Arn
       Events:
         ListApprovalReviews:

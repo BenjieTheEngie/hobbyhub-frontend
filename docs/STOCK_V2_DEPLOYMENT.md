@@ -75,3 +75,9 @@ Before a future approval, the admin interface displays an immutable `productId`,
 `src/components/CatalogApprovalAdmin.jsx` is an optional administrator review panel. It displays no actionable approval button unless the backend explicitly reports approved writes enabled. A typed confirmation is required for each operation, and the UI refreshes the verified AWS review before claiming success.
 
 **Do not enable the approval-write switch until** the Cognito admin group or approved administrators are configured, migration stock is verified, role permissions scoped, staging tests pass, and the owner authorizes public listings. The original Products table remains unchanged. Creating the approvals table or merging the frontend does **not** publish any product.
+
+## Least-privilege IAM in write-disabled staging
+
+The Stock V2 SAM template now **also conditions DynamoDB IAM permissions** on the same three explicitly controlled backend flags. With the deployment defaults (`EnableStockWrites=false`, `EnableStockInitialization=false`, `EnableCatalogApprovalWrites=false`), stock readers and catalog approval reviewers get only their required read operations; mutation actions are absent from their effective role policies. When adjustments are separately approved, the stock role can gain UpdateItem and audit PutItem. New opening balance PutItem additionally requires both stock writes **and** initialization enabled. Publication approval PutItem similarly requires its independent approval-write flag. The public catalog function remains scan-only under all configurations.
+
+AWS CloudFormation's read-only `ValidateTemplate` operation accepted the updated source template in `us-east-2`. A full SAM build and generated change-set review are still required to verify the transformed IAM role policies before deployment. Do not turn on any write flags without a separately approved migration/cutover plan and role verification.
