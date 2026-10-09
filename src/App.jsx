@@ -2,6 +2,7 @@ import React, {useEffect, useState} from "react";
 import IntakePanel from "./components/IntakePanel.jsx";
 import InventoryWorkspace from "./components/InventoryWorkspace.jsx";
 import LegacyStockReadPanel from "./components/LegacyStockReadPanel.jsx";
+import CatalogReadinessPanel from "./components/CatalogReadinessPanel.jsx";
 import ProductEditor from "./components/ProductEditor.jsx";
 import OrderWorkbench from "./components/OrderWorkbench.jsx";
 import {loadOrderOps} from "./lib/orderOps.js";
@@ -452,6 +453,7 @@ async function updateStock(product,quantity) {
   onStockInitialize={initializeVerifiedStock}
 />
 <LegacyStockReadPanel products={products} apiBase={LEGACY_STOCK_READ_API_BASE_URL} token={token}/>
+<CatalogReadinessPanel products={products}/>
 
 <OrderWorkbench
   orders={orders}
