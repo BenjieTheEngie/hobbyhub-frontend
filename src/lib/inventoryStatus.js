@@ -21,6 +21,8 @@ export function normalizeInventoryResponse(response) {
     rawSalePrice: p.salePrice,
     imageUrl: String(p.imageUrl || ''),
     published: p.published === true,
+    publicationKnown: typeof p.published === 'boolean',
+    activeStatusKnown: typeof p.isactive === 'boolean' || typeof p.isActive === 'boolean',
     isactive: !isArchived(p),
   })).filter(p => p.sku);
 }
