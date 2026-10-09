@@ -1,5 +1,7 @@
 import React, {useEffect, useState} from "react";
 import IntakePanel from "./components/IntakePanel.jsx";
+import InventoryWorkspace from "./components/InventoryWorkspace.jsx";
+import ProductEditor from "./components/ProductEditor.jsx";
 import {SiteHeader,Storefront,ShoppingCart} from "./components/Storefront.jsx";
 import {publishedCatalog,safeSavedCart,reconcileCart,setCartQuantity} from "./lib/shop.js";
 import {apiProduct,validProduct,uploadImage} from "./lib/intake.js";
@@ -243,6 +245,12 @@ async function updateStock(product,quantity) {
     catch(e){setMessage("Image was not uploaded: "+e.message);}
     finally{setImageBusy(false);}
   }
+  function startNewProduct(){
+    setEditingSku(null);setEditingProductId(null);
+    setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:0,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});
+    setMessage("New product draft ready. Review all fields before saving.");
+    window.requestAnimationFrame(()=>document.getElementById("product-editor")?.scrollIntoView({behavior:"smooth",block:"start"}));
+  }
   function editProduct(item){
     if(USE_LEGACY_PRODUCT_ROUTES && !item.productId){setInventoryNotice("Cannot edit: productId missing.");return;}
     setEditingSku(item.sku);
@@ -323,79 +331,19 @@ async function updateStock(product,quantity) {
           </div>
         </section>
 
-<section className="rounded-2xl bg-white p-6 shadow">
-  <h2 className="text-xl font-semibold">Inventory Management</h2>
-  <p className="muted">{USE_LEGACY_PRODUCT_ROUTES ? "The original AWS API identifies records by productId. DELETE may permanently delete ONE record, not every item sharing a SKU. Missing stock must be checked separately." : "The upgraded inventory API archives a unique SKU and retains its history."}</p>
-  <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
-    <button type="button" aria-pressed={!showArchived} onClick={()=>setShowArchived(false)} style={{background:!showArchived?"#173d79":"#e9effa",color:!showArchived?"#fff":"#283f64"}}>
-      {USE_LEGACY_PRODUCT_ROUTES?"AWS records":"Active SKUs"} ({inventoryForView(products,false).length})
-    </button>
-    <button type="button" aria-pressed={showArchived} onClick={()=>setShowArchived(true)} style={{background:showArchived?"#173d79":"#e9effa",color:showArchived?"#fff":"#283f64"}}>
-      View archived ({inventoryForView(products,true).length})
-    </button>
-  </div>
-  {inventoryNotice && <p role="status" aria-live="polite" style={{padding:"10px 12px",borderRadius:8,background:"#eef3ff",color:"#243a64",overflowWrap:"anywhere"}}>{inventoryNotice}</p>}
-  {USE_LEGACY_PRODUCT_ROUTES && <p className="muted" role="note">Original AWS API active: deletes are potentially permanent. The new soft-archive API is not yet connected. Do not delete a record until you confirm it is a duplicate.</p>}
-  {inventoryForView(products,showArchived).length === 0 && <p className="muted">{showArchived?"No archived SKUs were returned by the API.":"No active SKUs were returned by the API."}</p>}
-
-  {inventoryForView(products,showArchived).map((product,index) => (
-    <div
-      key={product.productId || product.sku+"-"+index}
-      style={{
-        display: "grid",
-        gridTemplateColumns: "2fr 1fr 1fr 1fr",
-        gap: "12px",
-        alignItems: "center",
-        borderBottom: "1px solid #ddd",
-        padding: "12px 0"
-      }}
-    >
-      <div>
-        <strong>{product.productName}</strong>
-        <p style={{ fontSize: "12px", color: "#555" }}>SKU {product.sku} {product.productId && <span>· record {safeRecordLabel(product)}</span>}</p>
-        {countSkuMatches(products,product.sku)>1 && <p style={{fontSize:12,fontWeight:700,color:"#9d5b1c"}}>Duplicate SKU — {countSkuMatches(products,product.sku)} distinct records</p>}
-        {product.stockReported!==true && <p style={{fontSize:12,color:"#667992"}}>Stock not reported in Products API</p>}
-        {product.priceInvalid===true && <p style={{fontSize:12,color:"#af2631"}}>Invalid negative sale price</p>}
-        {product.createdAt && <p style={{fontSize:12,color:"#667992"}}>Created: {new Date(product.createdAt).toLocaleString()}</p>}
-        <p style={{fontSize:12,color:"#536780"}}>Stored price: {product.priceInvalid ? String(product.rawSalePrice ?? "invalid") : "$"+Number(product.salePrice).toFixed(2)}</p>
-      </div>
-
-      <p>{product.category}</p>
-
-      <input
-        type="number"
-        disabled={USE_LEGACY_PRODUCT_ROUTES || isArchived(product) || Boolean(busySku) || countSkuMatches(products,product.sku)>1}
-        aria-label={"Stock for "+product.sku}
-        value={product.stockReported===true ? stockDrafts[product.sku] ?? product.quantityOnHand : ""}
-        placeholder={product.stockReported===true?"":"Unknown"}
-        onBlur={(e) => {if(!USE_LEGACY_PRODUCT_ROUTES && !isArchived(product) && String(product.quantityOnHand)!==e.target.value)updateStock(product,e.target.value);}}
-        onChange={(e)=>setStockDrafts(p=>({...p,[product.sku]:e.target.value}))}
-        style={{
-          padding: "6px",
-          border: "1px solid #ccc",
-          borderRadius: "6px"
-        }}
-      />
-
-      <button className="inventory-edit" disabled={isArchived(product) || Boolean(busySku) || (USE_LEGACY_PRODUCT_ROUTES && !product.productId) || (!USE_LEGACY_PRODUCT_ROUTES && countSkuMatches(products,product.sku)>1)} onClick={()=>editProduct(product)}>Edit</button>
-      <button
-        type="button"
-        disabled={Boolean(busySku) || (USE_LEGACY_PRODUCT_ROUTES && !product.productId) || (!USE_LEGACY_PRODUCT_ROUTES && countSkuMatches(products,product.sku)>1)}
-        onClick={() => isArchived(product) ? restoreProduct(product) : removeProduct(product)}
-        style={{
-          background: isArchived(product) ? "#25724d" : "#b42332",
-          color: "white",
-          border: "none",
-          padding: "8px",
-          borderRadius: "6px",
-          cursor: "pointer"
-        }}
-      >
-        {busySku===(USE_LEGACY_PRODUCT_ROUTES?product.productId:product.sku) ? "Working..." : isArchived(product) ? "Restore SKU" : USE_LEGACY_PRODUCT_ROUTES ? "Delete record" : "Archive SKU"}
-      </button>
-    </div>
-  ))}
-</section>
+<InventoryWorkspace
+  products={products}
+  isLegacy={USE_LEGACY_PRODUCT_ROUTES}
+  onEdit={editProduct}
+  onNew={startNewProduct}
+  onArchive={removeProduct}
+  onRestore={restoreProduct}
+  onReload={loadProducts}
+  busy={Boolean(busySku)}
+  busyId={busySku}
+  notice={inventoryNotice}
+  editorSku={editingSku}
+/>
 
 {token && <IntakePanel token={token} products={products} onFill={(data)=>{
   if(data.sku){
@@ -406,29 +354,18 @@ async function updateStock(product,quantity) {
   }
   setMessage("Card information copied. Review its exact printing, SKU, price and condition before saving.");
 }} onUpdated={loadProducts}/>} 
-        <section className="rounded-2xl bg-white p-6 shadow" id="product-editor">
-          <h2 className="text-xl font-semibold">{editingSku?"Edit inventory item":"Add inventory product"}</h2>
-          {editingSku&&<button onClick={()=>{setEditingSku(null);setEditingProductId(null);setProductForm({productName:"",sku:"",category:"Magic: The Gathering",salePrice:0,quantityOnHand:1,reorderPoint:0,imageUrl:"",setCode:"",collectorNumber:"",condition:"Near Mint",finish:"Nonfoil",language:"English",barcode:"",published:false,isactive:true});}}>Cancel edit / New product</button>}
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <input className="rounded-lg border p-3" value={productForm.productName} onChange={(e) => updateProductField("productName", e.target.value)} placeholder="Product Name" />
-            <input className="rounded-lg border p-3" value={productForm.sku} onChange={(e) => updateProductField("sku", e.target.value)} placeholder="SKU" />
-            <input className="rounded-lg border p-3" value={productForm.category} onChange={(e) => updateProductField("category", e.target.value)} placeholder="Category" />
-            <input className="rounded-lg border p-3" type="number" value={productForm.salePrice} onChange={(e) => updateProductField("salePrice", Number(e.target.value))} placeholder="Sale Price" />
-            <input className="rounded-lg border p-3" type="number" value={productForm.quantityOnHand} onChange={(e) => updateProductField("quantityOnHand", Number(e.target.value))} placeholder="Quantity" />
-            <input className="rounded-lg border p-3" type="number" value={productForm.reorderPoint} onChange={(e) => updateProductField("reorderPoint", Number(e.target.value))} placeholder="Reorder Point" />
-            <input className="rounded-lg border p-3" value={productForm.setCode} onChange={e=>updateProductField("setCode",e.target.value)} placeholder="Set code" />
-            <input className="rounded-lg border p-3" value={productForm.collectorNumber} onChange={e=>updateProductField("collectorNumber",e.target.value)} placeholder="Collector number" />
-            <input className="rounded-lg border p-3" value={productForm.condition} onChange={e=>updateProductField("condition",e.target.value)} placeholder="Condition" />
-            <input className="rounded-lg border p-3" value={productForm.barcode} onChange={e=>updateProductField("barcode",e.target.value)} placeholder="Barcode" />
-            <input className="rounded-lg border p-3" value={productForm.imageUrl} onChange={e=>updateProductField("imageUrl",e.target.value)} placeholder="HTTPS image URL" />
-            <label className="product-photo-upload">Upload product photo <input type="file" accept="image/jpeg,image/png,image/webp" disabled={imageBusy||!token} onChange={e=>{const file=e.target.files?.[0];e.target.value='';uploadCurrentImage(file);}} />{imageBusy&&<small>Uploading securely…</small>}</label>
-            {productForm.imageUrl&&<img className="editor-preview" src={productForm.imageUrl} alt="Product preview" onError={e=>{e.currentTarget.style.display="none";}}/>}
-            <label className="publish-label"><input type="checkbox" checked={productForm.published===true} onChange={e=>updateProductField("published",e.target.checked)}/> Publish on storefront</label>
-          </div>
-           <button className="mt-4 rounded-xl bg-green-600 px-4 py-2 font-semibold text-white" onClick={createProduct} disabled={!token}>
-            {editingSku?"Save product changes":"Add product to AWS"}
-          </button>
-     </section>
+        <ProductEditor
+          form={productForm}
+          editingSku={editingSku}
+          editingProductId={editingProductId}
+          isLegacy={USE_LEGACY_PRODUCT_ROUTES}
+          isSignedIn={Boolean(token)}
+          imageBusy={imageBusy}
+          onChange={updateProductField}
+          onSave={createProduct}
+          onCancel={startNewProduct}
+          onUpload={uploadCurrentImage}
+        />
       </>}
       </>
     )}
