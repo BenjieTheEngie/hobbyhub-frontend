@@ -94,7 +94,11 @@ export function aggregateMultiParcelRates(ratedParcels){
   for(const parcel of ratedParcels){
     const opts=parcel?.options;
     if(!Array.isArray(opts)||!opts.length)throw Error('At least one parcel has no carrier rate; no final quote is available.');
-    const best=opts[0];
+    const eligible=opts.filter(rate=>rate?.provider==='easypost'&&rate?.mode==='test'&&
+      CARRIERS.has(rate.carrier)&&Number.isSafeInteger(rate.shippingCents)&&
+      rate.shippingCents>=1&&rate.shippingCents<=500000);
+    if(!eligible.length)throw Error('Unverified carrier rate cannot be used.');
+    const best=eligible.reduce((a,b)=>a.shippingCents<=b.shippingCents?a:b);
     if(best.provider!=='easypost'||best.mode!=='test'||!CARRIERS.has(best.carrier)||
       !Number.isSafeInteger(best.shippingCents)||best.shippingCents<1)
       throw Error('Unverified carrier rate cannot be used.');
