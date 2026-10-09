@@ -55,3 +55,28 @@
 .hh-orders-shipping-policy strong{font-size:12px;color:#285a9c}
 .hh-orders-shipping-policy p{font-size:11px;line-height:1.6;color:#527397;margin:5px 0 0}
 @media(max-width:640px){.hh-orders-shipping-policy{margin:12px 17px 0}}
+
+/* Carrier rate sandbox is never a customer checkout or postage purchase. */
+.hh-rate-preview{margin:0 26px 26px;border:1px solid #dce6f4;border-radius:14px;background:#fbfcff;padding:21px;display:grid;gap:14px}
+.hh-rate-preview-head{display:grid;gap:6px}
+.hh-rate-preview-head h3{font-size:18px;color:#264c83;margin:0}
+.hh-rate-preview-head p{font-size:12px;line-height:1.65;color:#6b809d;margin:0}
+.hh-rate-preview form{display:grid;gap:17px}
+.hh-rate-preview fieldset{border:1px solid #dde7f5;border-radius:11px;padding:15px;margin:0;min-width:0}
+.hh-rate-preview legend{font-size:12px;font-weight:800;color:#3c5a83;padding:0 7px}
+.hh-rate-fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.hh-rate-fields label{display:grid;gap:5px;min-width:0;font-size:11px;font-weight:800;color:#5c7392}
+.hh-rate-fields input{min-width:0;width:100%;margin:0;height:41px;padding:10px;border:1px solid #d8e3f4;border-radius:8px;background:#fff;color:#2e4768;font-size:12px}
+.hh-rate-preview button.hh-rate-submit{margin:0;width:max-content;max-width:100%;background:#2463cc;color:#fff;border:0;min-height:42px;padding:10px 18px;border-radius:9px;font-size:12px;font-weight:800;box-shadow:none}
+.hh-rate-preview button.hh-rate-submit:hover:not(:disabled){background:#184da8;box-shadow:none;transform:none}
+.hh-rate-preview .hh-orders-message{margin:0}
+.hh-rate-options{display:grid;gap:8px;border:1px solid #d9e5f3;padding:15px;border-radius:10px;background:#fff}
+.hh-rate-options>strong{font-size:11px;color:#4771a4}
+.hh-rate-option{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;border-bottom:1px solid #e9eff8;padding:10px 0}
+.hh-rate-option:last-child{border-bottom:0}
+.hh-rate-option span{font-size:12px;color:#2f5178}
+.hh-rate-option>strong{color:#245597;font-size:14px}
+.hh-rate-option small{grid-column:1/-1;font-size:10px;color:#728aa9}
+.hh-rate-footer{font-size:11px;line-height:1.7;color:#788aa2;margin:0}
+@media(max-width:920px){.hh-rate-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.hh-rate-preview{margin:0 12px 17px;padding:15px}.hh-rate-fields{grid-template-columns:1fr}}
