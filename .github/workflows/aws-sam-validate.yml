@@ -1,0 +1,61 @@
+name: AWS SAM template validation
+on:
+  push:
+    branches: [main, 'feature/**']
+    paths:
+      - 'aws/**'
+      - 'backend/**'
+      - '.github/workflows/aws-sam-validate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aws/**'
+      - 'backend/**'
+      - '.github/workflows/aws-sam-validate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    name: Lint all AWS SAM templates offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SAM_CLI_TELEMETRY: '0'
+      AWS_DEFAULT_REGION: us-east-2
+      AWS_REGION: us-east-2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/setup-sam@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install CloudFormation linter for scoped legacy exception
+        run: python -m pip install --quiet 'cfn-lint>=1.50,<2'
+      - name: Validate all SAM manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' templates < <(find aws -type f -name 'template.yaml' -print0 | sort -z)
+          if (( ${#templates[@]} == 0 )); then
+            echo 'ERROR: no AWS SAM templates found.'
+            exit 1
+          fi
+          printf 'Found %s AWS SAM templates.\n' "${#templates[@]}"
+          for template in "${templates[@]}"; do
+            echo "::group::Validating ${template}"
+            if [[ "${template}" == "aws/media-addon/template.yaml" ]]; then
+              # SAM expands conditional Lambda Event routes into Fn::If branches.
+              # cfn-lint W1028 can mark SAM-generated false branches unreachable.
+              # Suppress ONLY this known warning in the old, still-disabled
+              # media add-on; enforce every other lint finding.
+              sam validate --template-file "${template}"
+              cfn-lint --template "${template}" --ignore-checks W1028
+            else
+              sam validate --lint --template-file "${template}"
+            fi
+            echo "::endgroup::"
+          done
+      - name: Verify no credentials were required
+        run: |
+          echo 'SAM validation completed with no AWS credentials and no cloud resource changes.'
