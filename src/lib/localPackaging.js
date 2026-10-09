@@ -60,7 +60,7 @@ export function withLocalPackaging(products,drafts) {
     if(measuredPackagingProfile(p))return p;
     const draft=drafts[p.productId];
     return draft && measuredPackagingProfile(draft)
-      ? {...p,shippingPackage:{...draft.shippingPackage},localPackageOnly:true}
+      ? {...p,shippingPackage:{...draft.shippingPackage},packagingNotes:draft.note||'',localPackageOnly:true}
       : p;
   });
 }
