@@ -150,3 +150,7 @@
 .hh-packaging-actions{display:flex;flex-wrap:wrap;gap:9px}
 .hh-packaging-editor .inv-feedback{margin:0}
 @media(max-width:600px){.hh-packaging-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.hh-packaging-import-label{display:inline-flex!important;position:relative;align-items:center;justify-content:center;cursor:pointer;vertical-align:middle}
+.hh-packaging-import-label input[type="file"]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+.hh-packaging-import-label:focus-within{outline:2px solid #326aca;outline-offset:2px}
