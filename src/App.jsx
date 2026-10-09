@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from "react";
 import IntakePanel from "./components/IntakePanel.jsx";
 import InventoryWorkspace from "./components/InventoryWorkspace.jsx";
+import LegacyStockReadPanel from "./components/LegacyStockReadPanel.jsx";
 import ProductEditor from "./components/ProductEditor.jsx";
 import OrderWorkbench from "./components/OrderWorkbench.jsx";
 import {loadOrderOps} from "./lib/orderOps.js";
@@ -17,6 +18,7 @@ const USE_LEGACY_PRODUCT_ROUTES = !String(import.meta.env.VITE_INVENTORY_API_BAS
 const STOCK_V2_API_BASE_URL = String(import.meta.env.VITE_STOCK_API_BASE_URL||"").trim().replace(/\/$/, "");
 const ORDER_OPS_API_BASE_URL = String(import.meta.env.VITE_ORDER_OPS_API_BASE_URL||"").trim().replace(/\/$/, "");
 const CARRIER_PREVIEW_API_BASE_URL = String(import.meta.env.VITE_CARRIER_PREVIEW_API_BASE_URL||"").trim().replace(/\/$/, "");
+const LEGACY_STOCK_READ_API_BASE_URL = String(import.meta.env.VITE_LEGACY_STOCK_READ_API_BASE_URL||"").trim().replace(/\/$/, "");
 const ALLOW_STOCK_INITIALIZATION = import.meta.env.VITE_ENABLE_STOCK_INITIALIZATION === "true";
 const ALLOW_STOCK_WRITES = import.meta.env.VITE_ENABLE_STOCK_WRITES === "true";
 const COGNITO_CLIENT_ID = "9qrtgdn5dtoqhc3brmr03mgn0";
@@ -449,6 +451,7 @@ async function updateStock(product,quantity) {
   onStockAdjust={changeVerifiedStock}
   onStockInitialize={initializeVerifiedStock}
 />
+<LegacyStockReadPanel products={products} apiBase={LEGACY_STOCK_READ_API_BASE_URL} token={token}/>
 
 <OrderWorkbench
   orders={orders}
