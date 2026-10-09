@@ -30,6 +30,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
   const [sort,setSort]=useState('issues');
   const [page,setPage]=useState(1);
   const [selected,setSelected]=useState(null);
+  const [deletionAcknowledged,setDeletionAcknowledged]=useState(false);
   const [exportMessage,setExportMessage]=useState('');
   const summary=useMemo(()=>inventorySummary(products),[products]);
   const counts=useMemo(()=>skuCounts(products),[products]);
@@ -52,7 +53,14 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
     }
     return [...grouped.values()].sort((a,b)=>b.count-a.count).slice(0,6);
   },[products,counts]);
-  function openRecord(p) {setSelected(recordKey(p,products.indexOf(p)));}
+  function openRecord(p) {setDeletionAcknowledged(false);setSelected(recordKey(p,products.indexOf(p)));}
+  function closeRecord() {setDeletionAcknowledged(false);setSelected(null);}
+  function requestLegacyRemoval() {
+    if (!isLegacy || !selectedRecord?.productId || !deletionAcknowledged || busy)return;
+    const record=selectedRecord;
+    closeRecord();
+    onArchive(record); // The app requires a second typed DELETE confirmation.
+  }
   function startAuditExport() {
     downloadAudit(visible);
     setExportMessage('Downloaded '+visible.length+' matching records. Nothing was changed in AWS.');
@@ -73,7 +81,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
     <div className={'inv-banner '+(isLegacy?'inv-banner-warning':'inv-banner-ready')} role="status">
       <span className="inv-banner-icon" aria-hidden="true">{isLegacy?'!':'✓'}</span>
       <div><strong>{isLegacy?'Legacy AWS inventory detected':'Inventory API connected'}</strong>
-        <p>{isLegacy?'Products are keyed by productId, not SKU. Historical duplicate SKUs and unverified stock exist. Destructive deletion is disabled in this workspace until the records are reconciled and backed up.':'Each SKU must be unique before using archive or restore. Changes require a verified backend.'}</p>
+        <p>{isLegacy?'Products are keyed by productId, not SKU. Historical duplicate SKUs and unverified stock exist. Removal is available from the selected record’s Review panel only after you verify backups and related inventory. The legacy DELETE action may permanently erase that record.':'Each SKU must be unique before using archive or restore. Changes require a verified backend.'}</p>
       </div>
       <span className="inv-banner-tag">{isLegacy?'AUDIT / REVIEW':'MANAGED MODE'}</span>
     </div>
@@ -124,7 +132,7 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
                 <td><strong className={p.priceInvalid?'inv-bad-price':''}>{p.priceInvalid?'Review: '+String(p.rawSalePrice??p.salePrice):money(p.salePrice)}</strong></td>
                 <td>{p.stockReported===true?<b className="inv-stock">{p.quantityOnHand}</b>:<span className="inv-muted-status">Not reported</span>}</td>
                 <td><div className="inv-issue-stack">{archived&&<span className="inv-chip inv-chip-neutral">Archived</span>}{issues.slice(0,2).map(issue=><span key={issue} className={'inv-chip '+(issue==='duplicate-sku'||issue==='invalid-price'?'inv-chip-danger':'inv-chip-warn')}>{issueLabels[issue]}</span>)}{issues.length>2&&<small>+{issues.length-2} more</small>}{!issues.length&&!archived&&<span className="inv-chip inv-chip-ok">No flagged issues</span>}</div></td>
-                <td><div className="inv-cell-actions"><button type="button" className="inv-button inv-button-light" onClick={()=>openRecord(p)}>Review</button></div></td>
+                <td><div className="inv-cell-actions"><button type="button" className="inv-button inv-button-light" onClick={()=>openRecord(p)}>{isLegacy?"Review / remove":"Review"}</button></div></td>
               </tr>;
             })}</tbody></table>
           {rows.length===0&&<div className="inv-empty"><span aria-hidden="true">◇</span><h3>{products.length?'No records match these filters':'No inventory records loaded'}</h3><p>{products.length?'Adjust the search or open another workspace.':'Sign in, then choose Refresh records to retrieve the current AWS products.'}</p><button type="button" className="inv-button inv-button-light" onClick={products.length?resetFilters:onReload}>{products.length?'Reset filters':'Load records'}</button></div>}
@@ -134,9 +142,9 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
       </div>
     </div>
 
-    {selectedRecord&&<div className="inv-modal-backdrop" role="presentation" onClick={()=>setSelected(null)}>
+    {selectedRecord&&<div className="inv-modal-backdrop" role="presentation" onClick={closeRecord}>
       <section role="dialog" aria-modal="true" aria-labelledby="inv-dialog-title" className="inv-dialog" onClick={e=>e.stopPropagation()}>
-        <button type="button" className="inv-dialog-close" aria-label="Close details" onClick={()=>setSelected(null)}>×</button>
+        <button type="button" className="inv-dialog-close" aria-label="Close details" onClick={closeRecord}>×</button>
         <span className="inv-eyebrow">PRODUCT RECORD DETAILS</span>
         <h3 id="inv-dialog-title">{selectedRecord.productName||'Unnamed record'}</h3>
         <p className="inv-dialog-sub">Use this record's ID to distinguish products with identical SKUs. Changing a SKU does not automatically reconcile existing duplicates.</p>
@@ -152,13 +160,24 @@ export default function InventoryWorkspace({products=[],isLegacy=true,onEdit,onN
         </dl>
         <div className="inv-detail-issues"><strong>Data quality</strong>{selectedIssues.length===0?<p>No known issues in the current product API response.</p>:<div>{selectedIssues.map(issue=><span key={issue} className="inv-chip inv-chip-warn">{issueLabels[issue]}</span>)}</div>}</div>
         <div className="inv-dialog-actions">
-          <button type="button" className="inv-button inv-button-light" onClick={()=>setSelected(null)}>Close</button>
-          <button type="button" className="inv-button inv-button-primary" disabled={busy||(!selectedRecord.productId&&isLegacy)} onClick={()=>{setSelected(null);onEdit(selectedRecord);}}>Edit this record</button>
+          <button type="button" className="inv-button inv-button-light" onClick={closeRecord}>Close</button>
+          <button type="button" className="inv-button inv-button-primary" disabled={busy||(!selectedRecord.productId&&isLegacy)} onClick={()=>{const record=selectedRecord;closeRecord();onEdit(record);}}>Edit this record</button>
           {!isLegacy && (isArchived(selectedRecord)?
-            <button type="button" className="inv-button inv-button-outline" disabled={busy||summary.duplicateSkus>0&&((counts.get(String(selectedRecord.sku).toLowerCase())||0)>1)} onClick={()=>{setSelected(null);onRestore(selectedRecord);}}>Restore SKU</button>:
-            <button type="button" className="inv-button inv-button-outline" disabled={busy||((counts.get(String(selectedRecord.sku).toLowerCase())||0)>1)} onClick={()=>{setSelected(null);onArchive(selectedRecord);}}>Archive SKU</button>)}
+            <button type="button" className="inv-button inv-button-outline" disabled={busy||summary.duplicateSkus>0&&((counts.get(String(selectedRecord.sku).toLowerCase())||0)>1)} onClick={()=>{const record=selectedRecord;closeRecord();onRestore(record);}}>Restore SKU</button>:
+            <button type="button" className="inv-button inv-button-outline" disabled={busy||((counts.get(String(selectedRecord.sku).toLowerCase())||0)>1)} onClick={()=>{const record=selectedRecord;closeRecord();onArchive(record);}}>Archive SKU</button>)}
         </div>
-        {isLegacy&&<div className="inv-dialog-warning">Permanent deletion is unavailable from the redesigned workspace. Existing records must be backed up and reconciled before cleanup.</div>}
+        {isLegacy&&<div className="inv-legacy-delete">
+          <strong>Remove this old AWS record</strong>
+          <p>The existing API uses <code>DELETE /products/&#123;productId&#125;</code>. This may permanently erase the selected record, not archive it. Stock or purchase-order references might still exist. Deleting one <b>{selectedRecord.sku||'unnamed SKU'}</b> record will not remove the other products sharing that SKU.</p>
+          <label className="inv-delete-confirm">
+            <input type="checkbox" checked={deletionAcknowledged} onChange={e=>setDeletionAcknowledged(e.target.checked)} disabled={busy||!selectedRecord.productId}/>
+            <span>I have verified a recoverable AWS backup and checked this record's inventory and purchase-order references. I understand deletion may be permanent.</span>
+          </label>
+          <button type="button" className="inv-delete-button" disabled={!selectedRecord.productId||!deletionAcknowledged||busy} onClick={requestLegacyRemoval}>
+            Delete only this product record
+          </button>
+          <small>A second confirmation asks you to type DELETE. No record is removed without both approvals.</small>
+        </div>}
       </section>
     </div>}
   </section>;
