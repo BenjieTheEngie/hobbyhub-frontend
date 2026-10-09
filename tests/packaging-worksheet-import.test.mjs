@@ -40,7 +40,7 @@ test('unknown product IDs, missing fields, repeated records and SKU mismatches f
   const csv=packagingWorksheetCsv([measured]);
   assert.throws(()=>preparePackagingCsvImport(csv,[products[1]]),/unknown productId/);
   assert.throws(()=>preparePackagingCsvImport(csv,[{...products[0],sku:'OTHER'}]),/SKU differs/);
-  assert.throws(()=>preparePackagingCsvImport(packagingWorksheetCsv([measured,measured]),products),/repeated product IDs/);
+  assert.throws(()=>preparePackagingCsvImport(csv+csv.split('\r\n')[1]+'\r\n',products),/repeated product IDs/);
   assert.throws(()=>preparePackagingCsvImport(csv,[products[0],products[0]]),/duplicate product identities/);
   assert.throws(()=>preparePackagingCsvImport(csv,[{...products[0],shippingPackage:measured.shippingPackage}]),/authoritative/);
   const cols=csv.trim().split('\r\n');
