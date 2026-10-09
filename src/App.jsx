@@ -275,7 +275,7 @@ async function updateStock(product,quantity) {
       setMessage("Products and verified stock loaded.");
       return {status:"ready",products:merged};
     }catch(e){
-      setProducts(base.map(p=>({...p,quantityOnHand:0,stockReported:false,stockSource:"unavailable",stockVersion:null})));
+      setProducts(base.map(p=>({...p,quantityOnHand:null,stockReserved:null,stockAvailable:null,stockReported:false,stockSource:"unavailable",stockVersion:null})));
       setStockStatus("unavailable");
       setMessage("Products loaded, but stock verification is unavailable: "+e.message);
       return {status:"unavailable",products:base};
