@@ -18,6 +18,7 @@ export function normalizeInventoryResponse(response) {
     quantityOnHand: Math.max(0, Math.trunc(Number(p.quantityOnHand) || 0)),
     stockReported: p.quantityOnHand !== null && p.quantityOnHand !== undefined && Number.isFinite(Number(p.quantityOnHand)),
     priceInvalid: !Number.isFinite(Number(p.salePrice)) || Number(p.salePrice) < 0,
+    rawSalePrice: p.salePrice,
     imageUrl: String(p.imageUrl || ''),
     published: p.published === true,
     isactive: !isArchived(p),
