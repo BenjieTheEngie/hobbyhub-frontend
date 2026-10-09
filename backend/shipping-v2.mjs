@@ -95,6 +95,7 @@ export function composePrecheckoutTotals(quote,shippingQuote) {
     throw Error('Verified product quote is required.');
   if(!shippingQuote || shippingQuote.method!==SHIPPING_METHOD ||
       shippingQuote.country!=='US' || shippingQuote.pickupAvailable!==false ||
+      !RATE_REGIONS.includes(shippingQuote.region) || shippingQuote.addressVerified!==false ||
       !Number.isSafeInteger(shippingQuote.shippingCents) ||
       shippingQuote.shippingCents<0 || shippingQuote.shippingCents>MAX_SHIPPING_CENTS)
     throw Error('Approved domestic shipping quote required.');
