@@ -16,12 +16,12 @@ test('server prices and published stock determine charged cents',()=>{
  assert.throws(()=>validatedShopItem({...product,quantityOnHand:1},{sku:'MTG-1',qty:2}),/stock/);
  assert.throws(()=>dollarsToCents(1.234),/price/);
 });
-test('shipping and tax are explicit hard gates in test-only configuration',()=>{
+test('legacy checkout remains disabled regardless of test-mode Stripe config',()=>{
  assert.equal(validateShipping('0'),0);assert.throws(()=>validateShipping(undefined),/not configured/);
  const config={HOBBYHUB_PRODUCTS_PK_NAME:'sku',HOBBYHUB_INVENTORY_WRITES_ENABLED:'true',HOBBYHUB_CHECKOUT_ENABLED:'true',HOBBYHUB_STRIPE_TEST_ONLY:'true',STRIPE_SECRET_KEY:'sk_test_sample',STRIPE_WEBHOOK_SECRET:'whsec_sample',HOBBYHUB_ORDERS_TABLE:'orders',HOBBYHUB_PRODUCTS_TABLE:'products',HOBBYHUB_CHECKOUT_RETURN_ORIGIN:'https://preview.example.com',HOBBYHUB_SHIPPING_CENTS:'500',HOBBYHUB_ENABLE_AUTOMATIC_TAX:'true'};
- assert.doesNotThrow(()=>requireProductionSafety(config));
- assert.throws(()=>requireProductionSafety({...config,STRIPE_SECRET_KEY:'sk_live_danger'}),/sandbox/);
- assert.throws(()=>requireProductionSafety({...config,HOBBYHUB_ENABLE_AUTOMATIC_TAX:'false'}),/tax/);
+ assert.throws(()=>requireProductionSafety(config),/disabled/);
+ assert.throws(()=>requireProductionSafety({...config,STRIPE_SECRET_KEY:'sk_live_danger'}),/disabled/);
+ assert.throws(()=>requireProductionSafety({...config,HOBBYHUB_ENABLE_AUTOMATIC_TAX:'false'}),/disabled/);
 });
 test('signed Stripe checkout event classifications never interpret unpaid completion as fulfillment',()=>{
  const base={data:{object:{object:'checkout.session',payment_status:'unpaid'}}};
