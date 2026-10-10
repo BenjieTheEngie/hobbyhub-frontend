@@ -2,6 +2,16 @@
 
 **Operator instructions.** Prepared October 9, 2026. The repository includes the exact JSON files, but **no IAM policy is attached, no CloudFormation service role is created, no sandbox table is deployed, and no AWS Budget has been configured as of the latest read-only verification**.
 
+## Verified AWS IAM checkpoint — October 9, 2026
+
+**Owner completed bootstrap:** read-only AWS API verification confirmed that `HobbyHubStagingLedgerCfnExec` exists, trusts **only CloudFormation**, and has exactly the inline policy `HobbyHubLedgerTableControlOnly` matching this repository's reviewed DynamoDB control-plane JSON. `HobbyHubStagingDeploy` exists, trusts **only main-branch OIDC from this repository**, and has exactly the `HobbyHubLedgerPreviewOnly` inline policy matching the reviewed no-execution CloudFormation JSON. Neither role has attached broad managed policies. Real AWS `SimulatePrincipalPolicy` for `HobbyHubStagingDeploy` returned **allowed** for staging `CreateChangeSet` and `iam:PassRole` for the one named execution role, but **implicitDeny** for `CreateStack`, `ExecuteChangeSet`, any production-stack change and passing unrelated roles. The executor policy allows staging DynamoDB `CreateTable` but denies item writes, reads of original Inventory, and original table configuration.
+
+**No staging tables or change set existed at that checkpoint.** Do not repeat steps 1–3 below if these actual IAM policies remain unchanged. Budget creation remains outstanding. The template is plain CloudFormation (no SAM transform needed for its two DynamoDB-only resources), so its change set has no extra SAM transform permissions.
+
+### Next operator action
+
+On GitHub Actions, select **Preview Stripe sandbox ledgers in AWS (NO DEPLOY)** → **Run workflow** on `main`, and enter `PREVIEW_NO_DEPLOY`. If the run succeeds, inspect the resulting CloudFormation stack `hobbyhub-stripe-sandbox-ledgers` in **us-east-2**; it should be in `REVIEW_IN_PROGRESS` with an unexecuted change set listing only two proposed DynamoDB tables. **Do not click Execute change set**. This GitHub workflow does not have permission to execute it. If the action fails, do not relax IAM policies automatically; send its error for diagnosis. The preview-only workflow deliberately creates no DynamoDB tables or payment infrastructure. The owner can review the proposed changes before separately approving actual resource creation.
+
 ## Verified credits and cost policy
 
 AWS Billing `GetCredits` returned **two ENABLED promotional credits, $100 and $20 remaining ($120 combined), both ending April 20, 2027** (UTC). The eligible product list includes **Amazon DynamoDB, AWS Lambda, Amazon API Gateway, AWS CloudFormation, AWS Secrets Manager, and AWS Budgets**. Credits apply automatically to eligible usage but **do not cap charges**; AWS may bill for ineligible services, expired credits, or overruns. The AWS Budgets API showed **zero budgets**. Cost Explorer is not enabled for this account, so this review did **not** verify total unbilled usage or forecast.
