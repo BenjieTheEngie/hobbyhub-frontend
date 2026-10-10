@@ -1,0 +1,91 @@
+name: Preview Checkout V2 Orders and Stock sandbox (NO DEPLOY)
+# Manual only. Requires separate IAM bootstrap and explicit owner cost approval
+# before executing this workflow, even though NO tables are created by preview.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type PREVIEW_NO_DEPLOY (the change set cannot be executed by this role)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    if: github.ref == 'refs/heads/main' && inputs.confirm == 'PREVIEW_NO_DEPLOY'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout source at verified main ref
+        uses: actions/checkout@v4
+      - name: Install AWS SAM for offline template validation
+        uses: aws-actions/setup-sam@v2
+      - name: Assert template is inert and contains exactly two new tables
+        shell: bash
+        run: |
+          set -euo pipefail
+          template=aws/checkout-v2-sandbox-foundation/template.yaml
+          sam validate --lint --template-file "$template"
+          node --test tests/checkout-v2-sandbox-foundation-template.test.mjs
+          test "$(grep -c 'Type: AWS::DynamoDB::Table' "$template")" -eq 2
+          ! grep -Eq 'Type: AWS::(IAM|Lambda|SecretsManager)|AWS::Serverless::(Function|HttpApi)' "$template"
+      - name: Assume temporary main-branch OIDC staging credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::349744180170:role/HobbyHubStagingDeploy
+          role-session-name: HobbyHubCheckoutV2Review
+          role-duration-seconds: 900
+          aws-region: us-east-2
+          allowed-account-ids: '349744180170'
+          mask-aws-account-id: true
+      - name: Verify account and prevent modifying existing checkout stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          arn="$(aws sts get-caller-identity --query Arn --output text)"
+          [[ "$arn" == arn:aws:sts::349744180170:assumed-role/HobbyHubStagingDeploy/* ]]
+          stack=hobbyhub-checkout-v2-sandbox-foundation
+          if aws cloudformation describe-stacks --stack-name "$stack" >/dev/null 2>&1; then
+            echo "::error::Checkout sandbox foundation stack already exists. Cannot modify it from preview."
+            exit 1
+          fi
+      - name: Prepare CloudFormation change set ONLY (never execute)
+        shell: bash
+        run: |
+          set -euo pipefail
+          stack=hobbyhub-checkout-v2-sandbox-foundation
+          change_set="hobbyhub-checkout-review-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          aws cloudformation create-change-set \
+            --stack-name "$stack" \
+            --change-set-name "$change_set" \
+            --change-set-type CREATE \
+            --template-body file://aws/checkout-v2-sandbox-foundation/template.yaml \
+            --parameters ParameterKey=Stage,ParameterValue=sandbox \
+                         ParameterKey=EnableCheckout,ParameterValue=false \
+                         ParameterKey=EnableStockMigration,ParameterValue=false \
+            --role-arn arn:aws:iam::349744180170:role/HobbyHubCheckoutV2SandboxCfnExec \
+            --region us-east-2 >/dev/null
+          aws cloudformation wait change-set-create-complete \
+            --stack-name "$stack" --change-set-name "$change_set" --region us-east-2
+          aws cloudformation describe-change-set \
+            --stack-name "$stack" --change-set-name "$change_set" --region us-east-2 \
+            --query 'Changes[].ResourceChange.[Action,LogicalResourceId,ResourceType]' \
+            --output json > /tmp/hobbyhub-checkout-v2-proposal.json
+          python3 - <<'PY'
+          import json
+          expected=[
+              ['Add','OrdersV2','AWS::DynamoDB::Table'],
+              ['Add','StockV2','AWS::DynamoDB::Table'],
+          ]
+          with open('/tmp/hobbyhub-checkout-v2-proposal.json',encoding='utf-8') as f:
+              actual=json.load(f)
+          if sorted(actual)!=sorted(expected):
+              raise SystemExit('REFUSED: proposed resources differ from exactly two empty staging tables')
+          print('PASS: proposed change set contains only two new encrypted PITR DynamoDB tables.')
+          print('NO changes were executed. Nothing was migrated or activated.')
+          PY
