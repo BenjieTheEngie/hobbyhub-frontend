@@ -70,7 +70,7 @@ test('same request cannot become new order, altered cart, or changed shipping qu
 test('same checkout request cannot be reused with a changed full-address carrier quote',()=>{
   const committed=(overrides={})=>({
     ...quote(),carrierRateConfirmedForPayment:true,rateMode:'live',
-    rateProvider:'easypost',shippingAddressVerified:true,
+    rateProvider:'easypost',shippingAddressVerified:true,shippingState:'MA',
     shippingDestinationDigest:'hmac-v1-'+'a'.repeat(64),
     carrierQuoteExpiresAt:'2026-10-09T19:30:00Z',
     carrierRateIds:['rate_abcdefgh123456','rate_qwertyuiop123456'],
