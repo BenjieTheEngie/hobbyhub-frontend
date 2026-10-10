@@ -1,6 +1,6 @@
 # Proposed staging-only AWS IAM policy set — NOT APPLIED
 
-**REVIEW DRAFT ONLY. No policy has been attached, no IAM role has been created by these files, and no AWS ledger table has been deployed. These policies may need further AWS IAM simulation before use.**
+**REVIEW DRAFT ONLY. No policy has been attached, no IAM role has been created by these files, and no AWS ledger table has been deployed. Seven representative read-only AWS IAM policy simulations succeeded on October 10, 2026. End-to-end CloudFormation deployment is still unverified.**
 
 The GitHub OIDC connection was tested successfully with `HobbyHubStagingDeploy`, but that role currently has **ZERO** AWS resource permissions. Do not attach `AdministratorAccess`, `PowerUserAccess`, `AWSCloudFormationFullAccess` or broad DynamoDB grants to unblock deployment.
 
@@ -11,6 +11,22 @@ These JSON documents describe the **smallest useful first staging step**: potent
 1. **GitHub OIDC entry role:** already verified existing `HobbyHubStagingDeploy`. Proposed inline policy `aws/iam/hobbyhub-ledger-github-deploy-policy.json` permits CloudFormation change-set/stack API operations **only** on the named sandbox ledger stack and `iam:PassRole` **only** for a separately restricted execution role when passed specifically to `cloudformation.amazonaws.com`.
 2. **CloudFormation execution role:** **does NOT exist** yet. Proposed name `HobbyHubStagingLedgerCfnExec`, trust document `aws/iam/hobbyhub-ledger-cfn-exec-trust.json`, permission document `aws/iam/hobbyhub-ledger-cfn-exec-policy.json`. Permissions are exclusively non-data DynamoDB table control-plane operations for table name prefixes belonging to the two new sandbox ledgers. Explicitly no `dynamodb:PutItem`, `GetItem`, `Query`, `Scan`, `DeleteItem`, `TransactWriteItems`, IAM principals or old inventory table permissions. No `DeleteTable` provisioned; tables also use CloudFormation Retain/PITR.
 3. The execution role is restricted **by what it can do**, even if someone with separate authority could cause CloudFormation to use it. Its service trust alone does not restrict which CloudFormation stack may invoke it; attaching the exact policy and limiting `iam:PassRole` is essential. Confirm any confused-deputy conditions with AWS IAM before creation.
+
+## Verified read-only policy simulation — October 10, 2026
+
+AWS IAM `SimulateCustomPolicy` was executed against the exact proposed policy JSON, **without attaching either policy or changing an IAM role**.
+
+| Sample operation | Simulation decision | Intended result |
+| --- | --- | --- |
+| GitHub role create named sandbox CloudFormation stack | allowed | Expected allow |
+| GitHub role create original `hobbyhub` stack | implicitDeny | Expected deny |
+| GitHub role pass only `HobbyHubStagingLedgerCfnExec` to CloudFormation | allowed | Expected allow |
+| GitHub role pass an unrelated admin role | implicitDeny | Expected deny |
+| CloudFormation role create named Stripe sandbox ledger table | allowed | Expected allow |
+| CloudFormation role create original Inventory table | implicitDeny | Expected deny |
+| CloudFormation role write an item into new sandbox ledger | implicitDeny | Expected deny |
+
+**These are policy simulations, not actual deployment tests.** They cannot guarantee success for all CloudFormation/PITR/tagging operations, template change sets, IAM permission boundaries or organization-level restrictions. Continue independent review before applying.
 
 ## Approval and deployment sequence
 
