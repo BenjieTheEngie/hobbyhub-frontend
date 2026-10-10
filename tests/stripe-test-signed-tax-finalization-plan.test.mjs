@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHmac,timingSafeEqual} from 'node:crypto';
 import {shippingDestinationHmac} from '../backend/stripe-shipping-bind.mjs';
-import {planFinalizeSignedStripeTestOrderTotals} from '../backend/stripe-test-signed-tax-finalization-plan.mjs';
+import {planFinalizeSignedStripeTestOrderTotals,reviewAlreadyFinalizedStripeTestOrder} from '../backend/stripe-test-signed-tax-finalization-plan.mjs';
 
 const TABLE='hobbyhub-checkout-v2-sandbox-foundation-OrdersV2-TEST12345';
 const signingSecret='whsec_this-is-an-inert-offline-fixture';
@@ -187,4 +187,66 @@ test('only standalone physical Orders V2 sandbox table can be finalized',async()
   ])await assert.rejects(()=>planFinalizeSignedStripeTestOrderTotals(args({
     orderTable:other
   })),/isolated/);
+});
+
+const finalized={...order,version:3,taxCents:95,totalCents:2145};
+const replay=(changes={})=>reviewAlreadyFinalizedStripeTestOrder(args({
+  order:finalized,...changes
+}));
+test('crash after tax write but before event inbox can reverify exact signed Stripe amount with NO writes',async()=>{
+  const operations=[];
+  const receipt=await replay({stripeSdk:sdk(session,operations)});
+  assert.deepEqual(operations,['verify','retrieve','verify']);
+  assert.equal(receipt.kind,'offline-already-finalized-stripe-test-order-review');
+  assert.equal(receipt.alreadyFinalized,true);
+  assert.equal(receipt.requiresDurableEventInbox,true);
+  assert.equal(receipt.requiresAtomicStockSettlement,true);
+  assert.equal(receipt.settled,false);
+  assert.equal(receipt.executable,false);
+  assert.equal(receipt.checkoutEnabled,false);
+  for(const permission of ['paymentWriteAuthorized','stockWriteAuthorized','fulfillmentAuthorized'])
+    assert.equal(receipt[permission],false);
+  assert.equal(receipt.expectedOrderVersion,3);
+  assert.equal(receipt.eventId,event.id);
+  assert.equal(receipt.sessionId,session.id);
+  assert.equal(receipt.totalCents,2145);
+  assert.equal(receipt.taxCents,95);
+  assert.match(receipt.fingerprint,/^[a-f0-9]{64}$/);
+  assert.equal('update' in receipt,false);
+  assert.equal('transactItems' in receipt,false);
+  assert.equal('put' in receipt,false);
+  const serialized=JSON.stringify(receipt);
+  for(const secret of ['22 Fictional Lane','98101','whsec_','pi_abcdefgh123456',
+    'fake-local-hmac-key'])assert.equal(serialized.includes(secret),false);
+});
+test('recovery refuses missing/changed finalized tax, stale order, paid order or different session',async()=>{
+  for(const changes of [
+    {version:2},{version:0},{version:3.5},
+    {taxCents:null},{taxCents:96},{totalCents:null},{totalCents:2146},
+    {status:'PAID'},{paymentStatus:'PAID'}, {paymentMode:'live'},
+    {fulfillmentStatus:'SHIPPED'},
+    {paymentEventId:event.id},
+    {stripeSessionId:'cs_test_different987654'},
+    {paymentSessionId:'cs_test_different987654'}
+  ])await assert.rejects(()=>replay({order:{...finalized,...changes}}));
+  for(const changes of [
+    {amount_total:2146},
+    {total_details:{amount_tax:96,amount_discount:0}},
+    {livemode:true}, {payment_status:'unpaid'},
+    {automatic_tax:{enabled:false,status:'complete'}},
+    {collected_information:{shipping_details:{address:{...destination,line1:'Different Road'}}}}
+  ])await assert.rejects(()=>replay({stripeSdk:sdk({...session,...changes})}));
+});
+test('recovery rejects expired reservation, invalid signature or unauthorized table',async()=>{
+  await assert.rejects(()=>replay({
+    order:{...finalized,reservedUntil:'2026-10-10T02:04:00Z'}
+  }));
+  await assert.rejects(()=>replay({
+    order:{...finalized,carrierQuoteExpiresAt:'2026-10-10T02:04:00Z'}
+  }));
+  await assert.rejects(()=>replay({orderTable:'hobbyhub-InventoryTable-X2IRQDAGW7WB'}),/isolated/);
+  const req=signedRequest();
+  await assert.rejects(()=>replay({
+    request:{...req,body:req.body.replace('2145','2146')}
+  }),/Signature/i);
 });
