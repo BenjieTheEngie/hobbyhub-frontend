@@ -119,7 +119,7 @@ test('only carrier-committed pre-tax quotes can preserve full-destination eviden
   assert.equal(receipt.order.shippingAddressVerified,true);
   assert.equal(receipt.order.shippingDestinationDigest,locked.shippingDestinationDigest);
   assert.deepEqual(receipt.order.carrierRateIds,locked.carrierRateIds);
-  assert.equal(receipt.order.carrierQuoteExpiresAt,locked.carrierQuoteExpiresAt);
+  assert.equal(receipt.order.carrierQuoteExpiresAt,new Date(locked.carrierQuoteExpiresAt).toISOString());
   assert.equal(receipt.order.rateMode,'live');
   assert.equal('line1' in receipt.order,false);
   assert.equal('shippingAddress' in receipt.order,false);
