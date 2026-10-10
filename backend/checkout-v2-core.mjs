@@ -85,6 +85,42 @@ export function verifyCheckoutQuote(intent,{productsById,stockById,skuCounts}) {
     shippingCents:null,taxCents:null,totalCents:null,
     checkoutReady:false}; // Shipping/tax/payment must be server-confirmed.
 }
+/**
+ * Future chargeable carrier quotes must bind the full destination with a
+ * server-only HMAC and preserve each independently rated parcel rate ID.
+ * Flat-rate/offline-only example quotes remain NONPAYMENT planning inputs.
+ * No caller-supplied boolean is proof of a carrier API response: that
+ * verification belongs to the trusted future backend before this helper.
+ */
+const SHIPPING_HMAC=/^hmac-v1-[a-f0-9]{64}$/;
+const RATE_ID=/^rate_[A-Za-z0-9]{8,80}$/;
+function checkedCarrierCommitment(quote,holdUntil) {
+  if(quote.carrierRateConfirmedForPayment!==true){
+    if(quote.rateMode==='live')
+      throw Error('Live carrier quote cannot omit server-confirmed payment eligibility.');
+    return null;
+  }
+  if(quote.rateMode!=='live'||typeof quote.rateProvider!=='string'||
+     !/^[A-Za-z][A-Za-z0-9_-]{1,39}$/.test(quote.rateProvider)||
+     quote.shippingAddressVerified!==true||
+     !SHIPPING_HMAC.test(quote.shippingDestinationDigest||'')||
+     typeof quote.carrierQuoteExpiresAt!=='string'||
+     !/^\d{4}-\d{2}-\d{2}T.*Z$/.test(quote.carrierQuoteExpiresAt)||
+     !Number.isFinite(Date.parse(quote.carrierQuoteExpiresAt))||
+     Date.parse(quote.carrierQuoteExpiresAt)<=Date.parse(holdUntil)||
+     !Array.isArray(quote.carrierRateIds)||quote.carrierRateIds.length<1||
+     quote.carrierRateIds.length>8||
+     quote.carrierRateIds.some(id=>typeof id!=='string'||!RATE_ID.test(id))||
+     new Set(quote.carrierRateIds).size!==quote.carrierRateIds.length)
+    throw Error('Carrier-confirmed prepayment quote requires a full address HMAC, unexpired rates and verified parcel IDs.');
+  return Object.freeze({
+    shippingDestinationDigest:quote.shippingDestinationDigest,
+    carrierQuoteExpiresAt:new Date(quote.carrierQuoteExpiresAt).toISOString(),
+    carrierRateIds:[...quote.carrierRateIds],
+    rateProvider:quote.rateProvider,
+    rateMode:'live'
+  });
+}
 export function buildReservationTransactions(quote,{stockTable,orderTable,orderId,now,holdUntil}) {
   if(!stockTable||!orderTable||!ID.test(orderId||'')||!Number.isFinite(Date.parse(now))||
     !Number.isFinite(Date.parse(holdUntil))||Date.parse(holdUntil)<=Date.parse(now))
@@ -100,6 +136,7 @@ export function buildReservationTransactions(quote,{stockTable,orderTable,orderI
      quote.taxCents!==null || quote.totalCents!==null ||
      quote.preTaxCents!==quote.subtotalCents+quote.shippingCents)
     throw Error('Approved U.S. shipping estimate required; tax and charge total must remain pending.');
+  const committedCarrier=checkedCarrierCommitment(quote,holdUntil);
   const stockWrites=quote.items.map(item=>({
     Update:{
       TableName:stockTable,Key:{productId:item.productId},
@@ -119,7 +156,9 @@ export function buildReservationTransactions(quote,{stockTable,orderTable,orderI
     subtotalCents:quote.subtotalCents,totalCents:null,
     shippingCents:quote.shippingCents,taxCents:null,currency:'usd',createdAt:now,updatedAt:now,
     shippingCountry:'US',shippingMethod:'domestic_shipping',shippingRegion:quote.shippingRegion,
-    pickupAvailable:false,shippingAddressVerified:false,
+    pickupAvailable:false,
+    shippingAddressVerified:committedCarrier!==null,
+    ...(committedCarrier||{}),
     reservedUntil:holdUntil,version:1,
   };
   const put={Put:{TableName:orderTable,Item:order,ConditionExpression:'attribute_not_exists(orderId)'}};

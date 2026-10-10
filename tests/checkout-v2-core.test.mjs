@@ -100,6 +100,49 @@ test('reservation plan atomically updates exact productId/version/reserved and s
   assert.equal('customerEmail' in result.order,false);
   assert.equal('stripeSessionId' in result.order,false);
 });
+test('only carrier-committed pre-tax quotes can preserve full-destination evidence for future payment',()=>{
+  const basic=shippingEstimate(verifyCheckoutQuote(
+    validateCheckoutIntent(request),snapshots({allowDuplicates:true})
+  ));
+  const locked={
+    ...basic,carrierRateConfirmedForPayment:true,rateMode:'live',
+    rateProvider:'easypost',shippingAddressVerified:true,
+    shippingDestinationDigest:'hmac-v1-'+'a'.repeat(64),
+    carrierRateIds:['rate_abcdefgh123456'],
+    carrierQuoteExpiresAt:'2026-10-09T11:00:00Z'
+  };
+  const plan=(q)=>buildReservationTransactions(q,{
+    stockTable:'TEST-STOCK',orderTable:'TEST-ORDERS',orderId:'order-123',
+    now:'2026-10-09T10:00:00Z',holdUntil:'2026-10-09T10:35:00Z'
+  });
+  const receipt=plan(locked);
+  assert.equal(receipt.order.shippingAddressVerified,true);
+  assert.equal(receipt.order.shippingDestinationDigest,locked.shippingDestinationDigest);
+  assert.deepEqual(receipt.order.carrierRateIds,locked.carrierRateIds);
+  assert.equal(receipt.order.carrierQuoteExpiresAt,new Date(locked.carrierQuoteExpiresAt).toISOString());
+  assert.equal(receipt.order.rateMode,'live');
+  assert.equal('line1' in receipt.order,false);
+  assert.equal('shippingAddress' in receipt.order,false);
+  for(const variant of [
+    {carrierRateConfirmedForPayment:false},
+    {rateMode:'test'}, {rateMode:undefined},
+    {rateProvider:undefined},
+    {shippingAddressVerified:false},
+    {shippingDestinationDigest:undefined},
+    {shippingDestinationDigest:'a'.repeat(64)},
+    {carrierQuoteExpiresAt:'2026-10-09T10:30:00Z'},
+    {carrierQuoteExpiresAt:'bad'},
+    {carrierRateIds:[]}, {carrierRateIds:['bad']},
+    {carrierRateIds:['rate_abcdefgh123456','rate_abcdefgh123456']}
+  ]){
+    const changed={...locked,...variant};
+    assert.throws(()=>plan(changed),/Carrier-confirmed|Live carrier quote|Carrier TEST quotes/);
+  }
+  assert.throws(()=>plan({...basic,rateMode:'live'}),/Live carrier quote/);
+  const offline=plan(basic);
+  assert.equal(offline.order.shippingAddressVerified,false);
+  assert.equal('shippingDestinationDigest' in offline.order,false);
+});
 test('reservation expiry and unknown order details refuse transaction building',()=>{
   const quote=shippingEstimate(verifyCheckoutQuote(validateCheckoutIntent(request),snapshots({allowDuplicates:true})));
   assert.throws(()=>buildReservationTransactions(quote,{stockTable:'S',orderTable:'O',orderId:'order-3',now:'2026-10-09T10:00:00Z',holdUntil:'2026-10-09T09:00:00Z'}),/expiry/);
