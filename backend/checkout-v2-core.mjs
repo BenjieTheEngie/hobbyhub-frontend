@@ -93,6 +93,7 @@ export function verifyCheckoutQuote(intent,{productsById,stockById,skuCounts}) {
  * verification belongs to the trusted future backend before this helper.
  */
 const SHIPPING_HMAC=/^hmac-v1-[a-f0-9]{64}$/;
+const US_STATE=new Set(['AL','AZ','AR','CA','CO','CT','DE','FL','GA','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC','AK','HI']);
 const RATE_ID=/^rate_[A-Za-z0-9]{8,80}$/;
 function checkedCarrierCommitment(quote,holdUntil) {
   if(quote.carrierRateConfirmedForPayment!==true){
@@ -103,6 +104,7 @@ function checkedCarrierCommitment(quote,holdUntil) {
   if(quote.rateMode!=='live'||typeof quote.rateProvider!=='string'||
      !/^[A-Za-z][A-Za-z0-9_-]{1,39}$/.test(quote.rateProvider)||
      quote.shippingAddressVerified!==true||
+     !US_STATE.has(quote.shippingState)||
      !SHIPPING_HMAC.test(quote.shippingDestinationDigest||'')||
      typeof quote.carrierQuoteExpiresAt!=='string'||
      !/^\d{4}-\d{2}-\d{2}T.*Z$/.test(quote.carrierQuoteExpiresAt)||
@@ -126,6 +128,7 @@ function checkedCarrierCommitment(quote,holdUntil) {
     throw Error('Carrier-confirmed prepayment quote requires a full address HMAC, unexpired per-unit parcel rates and exact verified shipping sum.');
   return Object.freeze({
     shippingDestinationDigest:quote.shippingDestinationDigest,
+    shippingState:quote.shippingState,
     carrierQuoteExpiresAt:new Date(quote.carrierQuoteExpiresAt).toISOString(),
     carrierRateIds:[...quote.carrierRateIds],
     ratedParcelCount:quote.ratedParcelCount,
