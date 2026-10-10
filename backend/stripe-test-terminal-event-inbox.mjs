@@ -31,7 +31,7 @@ function utc(value){
 function validateInputs({event,session,order,now}){
   if(!EVENT_TYPES.has(event.type)||event.paymentStatus!=='unpaid'||
      session.payment_status!=='unpaid'||
-     !Number.isSafeInteger(session.amount_total)||
+     !Number.isSafeInteger(session.amount_total)||session.amount_total<0||
      session.amount_total!==event.amountTotalCents||
      (event.type==='checkout.session.completed'&&session.status!=='complete')||
      (event.type==='checkout.session.expired'&&session.status!=='expired')||
@@ -50,7 +50,7 @@ function validateInputs({event,session,order,now}){
     order.pickupAvailable!==false||
     !Number.isSafeInteger(order.version)||order.version<2||
     typeof order.reservedUntil!=='string'||
-    !Number.isFinite(Date.parse(order.reservedUntil)))
+    !Number.isFinite(Date.parse(order.reservedUntil))||!/^\d{4}-\d{2}-\d{2}T.*Z$/.test(order.reservedUntil))
     throw Error('Only a matching still-reserved unpaid TEST order can record terminal review.');
   // A failed Session can have unsettled/null tax and totals. Never infer
   // missing tax is zero or that a failed payment cannot later succeed.
@@ -71,7 +71,7 @@ function validateExisting(row,record){
     !HEX.test(row.fingerprint||'')||
     row.reviewDisposition!==record.reviewDisposition||
     row.totalAuditDisposition!==record.totalAuditDisposition||
-    !Number.isFinite(Date.parse(row.recordedAt)))
+    typeof row.recordedAt!=='string'||!Number.isFinite(Date.parse(row.recordedAt)))
     throw Error('Existing terminal Stripe TEST event receipt is inconsistent: manual investigation required.');
   if(row.fingerprint!==record.fingerprint)
     throw Error('Stripe terminal event ID collision with a different signed payload.');
