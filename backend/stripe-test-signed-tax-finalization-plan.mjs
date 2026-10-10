@@ -132,3 +132,56 @@ export async function planFinalizeSignedStripeTestOrderTotals({
     update
   });
 }
+
+/**
+ * OFFLINE crash-recovery review for a finalized-but-still-RESERVED order.
+ * A future signed-webhook Lambda MUST strongly consistently read the order,
+ * then use this gate when tax/total are already non-NULL instead of trying
+ * to repeat the conditional tax finalization update.
+ *
+ * This performs no AWS writes, no settlement and no fulfillment action.
+ */
+export async function reviewAlreadyFinalizedStripeTestOrder({
+  request,stripeSdk,webhookSigningSecret,order,
+  checkedAt,destinationSigningKey,orderTable
+}={}){
+  const stamp=serverUTC(checkedAt);
+  if(typeof orderTable!=='string'||!ORDER_TABLE.test(orderTable))
+    throw Error('Only isolated Orders V2 sandbox table may recover finalized Stripe TEST totals.');
+  if(!order||!Number.isSafeInteger(order.version)||order.version<3||
+    order.status!=='RESERVED'||order.paymentStatus!=='PENDING'||
+    order.fulfillmentStatus!=='UNFULFILLED'||
+    order.paymentEventId!==undefined||
+    order.paymentMode!=='test'||
+    !TEST_SESSION.test(order.stripeSessionId||'')||
+    order.paymentSessionId!==order.stripeSessionId||
+    !Number.isSafeInteger(order.taxCents)||order.taxCents<0||
+    !Number.isSafeInteger(order.totalCents)||order.totalCents<=0||
+    order.totalCents!==order.subtotalCents+order.shippingCents+order.taxCents)
+    throw Error('Strongly consistent finalized but unpaid TEST Order V2 snapshot is required.');
+  const {session}=await retrieveSignedStripeTestSession({
+    request,stripeSdk,webhookSigningSecret
+  });
+  const review=reviewStripeTestCheckoutReconciliation({
+    request,stripeSdk,webhookSigningSecret,retrievedSession:session,
+    order,checkedAt:stamp,destinationSigningKey,previousEvents:new Map()
+  });
+  if(review.pendingAtomicSettlement!==true||
+     review.requiresHumanReview!==false||review.duplicateEvent!==false||
+     review.disposition!=='RECONCILE_PAID_AND_STOCK_ATOMICALLY'||
+     review.totalAuditDisposition!=='MATCHED_TEST_PAYMENT_REQUIRES_ATOMIC_RECONCILIATION')
+    throw Error('Finalized Stripe TEST order requires human review or mismatches the provider.');
+  return Object.freeze({
+    kind:'offline-already-finalized-stripe-test-order-review',
+    alreadyFinalized:true,requiresDurableEventInbox:true,
+    requiresAtomicStockSettlement:true,settled:false,
+    executable:false,checkoutEnabled:false,
+    paymentWriteAuthorized:false,stockWriteAuthorized:false,
+    fulfillmentAuthorized:false,
+    orderId:order.orderId,eventId:review.eventId,sessionId:review.sessionId,
+    expectedOrderVersion:order.version,
+    fingerprint:review.fingerprint,
+    taxCents:order.taxCents,totalCents:order.totalCents,
+    // No Update/Put/TransactItems; all Stripe and AWS write decisions deferred.
+  });
+}
