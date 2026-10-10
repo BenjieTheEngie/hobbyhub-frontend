@@ -1,3 +1,5 @@
+import {verifyBoundStripeDestination} from './stripe-shipping-bind.mjs';
+
 /**
  * Source-only reconciliation of a TEST Stripe Checkout Session to a trusted
  * V2 order and server-approved parcel/tax totals. No API calls or mutations.
@@ -59,7 +61,7 @@ function usStateOf(session){
  * The server must separately verify delivery, ship-from parcel, carrier
  * quote expiry/identity, Stripe provider payment status and event idempotency.
  */
-export function auditStripeSandboxSessionTotals({session,order,checkedAt}={}){
+export function auditStripeSandboxSessionTotals({session,order,checkedAt,destinationSigningKey}={}){
   const checked=iso(checkedAt);
   if(!order||!ORDER_ID.test(order.orderId||'')||
      !SESSION_ID.test(order.stripeSessionId||'')||
@@ -81,6 +83,16 @@ export function auditStripeSandboxSessionTotals({session,order,checkedAt}={}){
   const state=usStateOf(session);
   if(order.shippingState!==state)
     throw Error('Checkout destination changed since the server-approved carrier quote.');
+  // Comparing a U.S. state/ZIP alone is not sufficient. Stripe may let the
+  // buyer change their street/city after the carrier calculated its rate.
+  // No raw address or unkeyed address hash is ever written to the order.
+  const destination=session.collected_information?.shipping_details?.address ||
+    session.shipping_details?.address;
+  if(!verifyBoundStripeDestination(destination,order.shippingDestinationDigest,destinationSigningKey))
+    throw Error('Stripe delivery address differs from the server-approved carrier quote.');
+  const quoteExpires=iso(order.carrierQuoteExpiresAt);
+  if(checked>quoteExpires)
+    throw Error('Carrier shipping quote expired; operator must reconcile payment and re-quote.');
   const subtotal=cents(order.subtotalCents,1,MAX_SUBTOTAL,'order subtotal');
   const shipping=cents(order.shippingCents,0,MAX_SHIPPING,'order shipping');
   const tax=cents(order.taxCents,0,MAX_TOTAL,'order tax');
