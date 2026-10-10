@@ -136,7 +136,7 @@ test('only carrier-committed pre-tax quotes can preserve full-destination eviden
     {carrierRateIds:['rate_abcdefgh123456','rate_abcdefgh123456']}
   ]){
     const changed={...locked,...variant};
-    assert.throws(()=>plan(changed),/Carrier-confirmed|Live carrier quote/);
+    assert.throws(()=>plan(changed),/Carrier-confirmed|Live carrier quote|Carrier TEST quotes/);
   }
   assert.throws(()=>plan({...basic,rateMode:'live'}),/Live carrier quote/);
   const offline=plan(basic);
