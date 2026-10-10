@@ -82,13 +82,28 @@ test('each unit is rated as one actual packed parcel until consolidated packing 
   let calls=0;
   const result=await prepareVerifiedCarrierCheckoutPreview({
     ...inputs({quantity:2}),quoteParcel:async()=>{
-      calls++;return resultRate;
+      calls++;
+      return calls===1?resultRate:{
+        ...resultRate,options:resultRate.options.map((r,i)=>({
+          ...r,rateId:i===0?'rate_secondabcd1234':'rate_secondother1234'
+        }))
+      };
     }
   });
   assert.equal(calls,2);
   assert.equal(result.carrierPreview.parcelCount,2);
   assert.equal(result.shippingCents,978);
   assert.equal(result.subtotalCents,1300);
+});
+test('test quote rejects duplicate EasyPost rate IDs across separate product units',async()=>{
+  let calls=0;
+  await assert.rejects(()=>prepareVerifiedCarrierCheckoutPreview({
+    ...inputs({quantity:2}),quoteParcel:async()=>{
+      calls++;
+      return resultRate;
+    }
+  }),/reused/);
+  assert.equal(calls,2);
 });
 test('international or invalid destination is rejected without carrier call',async()=>{
   let calls=0;
