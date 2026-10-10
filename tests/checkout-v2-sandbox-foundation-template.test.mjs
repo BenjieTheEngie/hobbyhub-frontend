@@ -54,7 +54,10 @@ test('no legacy production tables, data import, write operations or scheduled mi
     'dynamodb:PutItem','dynamodb:BatchWriteItem','dynamodb:TransactWriteItems',
     'dynamodb:Scan','Fn::ImportValue','AWS::DynamoDB::TableImporter',
     /^\s+TableName:/m,/^\s+DeletionPolicy: Delete/m
-  ])assert.doesNotMatch(template,forbidden);
+  ]) {
+    if(typeof forbidden==='string')assert.equal(template.includes(forbidden),false,'Forbidden text: '+forbidden);
+    else assert.doesNotMatch(template,forbidden);
+  }
   assert.match(template,/Value: !Ref StockV2/);
   assert.match(template,/Value: !Ref OrdersV2/);
 });
