@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {verifyStripeSandboxEnvelope} from '../backend/stripe-sandbox-webhook-boundary.mjs';
+import {retrieveSignedStripeTestSession} from '../backend/stripe-test-session-fetch.mjs';
 
 // This test installs dependencies from backend/package.json and uses the
 // actual official Stripe SDK's raw-body HMAC + timestamp verification.
@@ -50,4 +51,36 @@ test('real Stripe SDK rejects tampered raw payload, wrong secret and expired sig
     request:{...request,headers:{'stripe-signature':oldHeader}},
     stripeSdk:stripe,webhookSigningSecret:secret
   }),/timestamp/i);
+});
+
+test('official Stripe SDK signature gates server-owned TEST Checkout Session lookup',async()=>{
+  const original=stripe.checkout.sessions.retrieve;
+  const calls=[];
+  stripe.checkout.sessions.retrieve=async(id)=>{
+    calls.push(id);
+    return {...data.data.object};
+  };
+  try{
+    const payload=JSON.stringify(data);
+    const result=await retrieveSignedStripeTestSession({
+      request:requestFromPayload(payload),stripeSdk:stripe,webhookSigningSecret:secret
+    });
+    assert.equal(result.session.id,data.data.object.id);
+    assert.deepEqual(calls,[data.data.object.id]);
+    const bad=requestFromPayload(payload);
+    bad.body=payload.replace('1599','1000');
+    await assert.rejects(()=>retrieveSignedStripeTestSession({
+      request:bad,stripeSdk:stripe,webhookSigningSecret:secret
+    }),/signature/i);
+    assert.equal(calls.length,1,'Tampered provider event must not trigger Stripe lookup');
+    stripe.checkout.sessions.retrieve=async(id)=>{
+      calls.push(id);
+      return {...data.data.object,livemode:true};
+    };
+    await assert.rejects(()=>retrieveSignedStripeTestSession({
+      request:requestFromPayload(payload),stripeSdk:stripe,webhookSigningSecret:secret
+    }),/TEST Checkout Session/);
+  }finally{
+    stripe.checkout.sessions.retrieve=original;
+  }
 });

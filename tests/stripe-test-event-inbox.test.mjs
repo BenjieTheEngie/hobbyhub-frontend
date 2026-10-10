@@ -49,6 +49,14 @@ const sdk={webhooks:{constructEvent(raw,header,webhookSecret,tolerance){
   if(!timingSafeEqual(expected,Buffer.from(m[2],'hex')))throw Error('Signature mismatch');
   return JSON.parse(raw.toString('utf8'));
 }}};
+const sdkWithSession=(providerSession)=>({
+  ...sdk,
+  checkout:{sessions:{async retrieve(id){
+    assert.equal(id,session.id,'Stripe retrieval must use the signed session ID');
+    return providerSession;
+  }}}
+});
+sdk.checkout=sdkWithSession(session).checkout;
 
 function store(){
   const rows=new Map();const calls=[];
@@ -81,7 +89,7 @@ function store(){
 function args(ledgerClient,overrides={}){
   return {
     request:requestFor(),stripeSdk:sdk,webhookSigningSecret:secret,
-    retrievedSession:session,order,checkedAt,destinationSigningKey:addressKey,
+    order,checkedAt,destinationSigningKey:addressKey,
     ledgerClient,eventTable:TABLE,...overrides
   };
 }
@@ -142,11 +150,11 @@ test('two concurrent replicas race on atomic conditional Put and exactly one sto
 test('recording requires a valid raw-body Stripe signature and exact provider/order totals',async()=>{
   for(const change of [
     {request:{...requestFor(),body:requestFor().body.replace('1898','1800')}},
-    {retrievedSession:{...session,amount_total:1899}},
-    {retrievedSession:{...session,metadata:{orderId:'wrong'}}},
-    {retrievedSession:{...session,collected_information:{
-      shipping_details:{address:{...address,line1:'456 Other Street'}}}},
-    },
+    {stripeSdk:sdkWithSession({...session,amount_total:1899})},
+    {stripeSdk:sdkWithSession({...session,metadata:{orderId:'wrong'}})},
+    {stripeSdk:sdkWithSession({...session,collected_information:{
+      shipping_details:{address:{...address,line1:'456 Other Street'}}}
+    })},
     {order:{...order,taxCents:1}},
     {order:{...order,carrierQuoteExpiresAt:'2026-10-10T01:59:59Z'}},
     {destinationSigningKey:undefined}
@@ -173,16 +181,58 @@ test('rejects live-mode events, mismatched checkout, untrusted table and missing
     assert.equal(client.rows.size,0);
   }
 });
+test('retrieves Session through trusted Stripe SDK after signature, before touching DynamoDB',async()=>{
+  const client=store();
+  const orderOfOperations=[];
+  const sdkInstrumented={
+    ...sdk,checkout:{sessions:{async retrieve(id){
+      orderOfOperations.push('stripe-retrieve');
+      assert.equal(id,session.id);
+      assert.equal(client.calls.length,0);
+      return session;
+    }}}
+  };
+  await recordVerifiedStripeTestEventForReview(args(client,{stripeSdk:sdkInstrumented}));
+  assert.deepEqual(orderOfOperations,['stripe-retrieve']);
+  assert.deepEqual(client.calls.map(x=>x.operation),['get','put']);
+  const tampered=requestFor();
+  await assert.rejects(()=>recordVerifiedStripeTestEventForReview(args(store(),{
+    stripeSdk:sdkInstrumented,
+    request:{...tampered,body:tampered.body.replace('1898','1800')}
+  })),/Signature/);
+  assert.equal(orderOfOperations.length,1,'Invalid signature must never contact Stripe');
+});
+test('session lookup errors, wrong test session and missing trusted SDK method fail closed',async()=>{
+  for(const invalidSdk of [
+    {...sdk,checkout:undefined},
+    sdkWithSession({...session,id:'cs_test_different987654'}),
+    sdkWithSession({...session,livemode:true}),
+    {...sdk,checkout:{sessions:{async retrieve(){throw Error('Stripe timeout')}}}}
+  ]){
+    const client=store();
+    await assert.rejects(()=>recordVerifiedStripeTestEventForReview(args(client,{
+      stripeSdk:invalidSdk
+    })));
+    assert.deepEqual(client.calls,[]);
+  }
+});
+test('caller-supplied Session objects cannot override server-owned Stripe lookup',async()=>{
+  const client=store();
+  const result=await recordVerifiedStripeTestEventForReview(args(client,{
+    retrievedSession:{...session,amount_total:1,livemode:true}
+  }));
+  assert.equal(result.alreadyRecorded,false);
+  assert.equal(client.rows.size,1);
+  noSideEffects(result);
+});
 test('a duplicate event ID with a conflicting signed payload cannot overwrite or be accepted',async()=>{
   const client=store();
   await recordVerifiedStripeTestEventForReview(args(client));
-  const maliciousSession={...session,amount_subtotal:1201,amount_total:1899};
-  const malicious={...event,data:{object:maliciousSession}};
+  const conflictingSession={...session,payment_status:'unpaid',payment_intent:null};
+  const conflictingEvent={...event,data:{object:conflictingSession}};
   await assert.rejects(()=>recordVerifiedStripeTestEventForReview(args(client,{
-    request:requestFor(malicious),retrievedSession:maliciousSession,
-    order:{...order,subtotalCents:1201,totalCents:1899,
-      items:[{...order.items[0],unitPriceCents:600,lineTotalCents:1201}]}
-  })));
+    request:requestFor(conflictingEvent),stripeSdk:sdkWithSession(conflictingSession)
+  })),/collision/);
   assert.equal(client.rows.size,1);
   assert.equal(client.calls.filter(c=>c.operation==='put').length,1);
 });
@@ -201,7 +251,7 @@ test('unpaid completion is only logged as pending review, never treated as captu
   const unpaid={...session,payment_status:'unpaid',payment_intent:null};
   const signed={...event,data:{object:unpaid}};
   const result=await recordVerifiedStripeTestEventForReview(args(client,{
-    request:requestFor(signed),retrievedSession:unpaid
+    request:requestFor(signed),stripeSdk:sdkWithSession(unpaid)
   }));
   assert.equal(client.rows.get(event.id).reviewDisposition,'WAIT_FOR_VERIFIED_PAYMENT');
   noSideEffects(result);
