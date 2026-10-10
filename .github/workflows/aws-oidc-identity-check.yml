@@ -1,0 +1,44 @@
+name: AWS OIDC identity smoke test (read-only)
+# No infrastructure changes, permissions policies, Stripe calls or stock reads.
+# 'pull_request' intentionally omitted: OIDC role trust only allows main.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/aws-oidc-identity-check.yml'
+permissions:
+  contents: read
+jobs:
+  verify-identity:
+    name: Verify scoped AWS identity, no writes
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    timeout-minutes: 5
+    steps:
+      - name: Request short-lived AWS credentials through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::349744180170:role/HobbyHubStagingDeploy
+          role-session-name: HobbyHubOIDCVerify
+          role-duration-seconds: 900
+          aws-region: us-east-2
+          allowed-account-ids: '349744180170'
+          mask-aws-account-id: true
+      - name: Assert AWS STS caller is the exact staging role (no infrastructure API calls)
+        shell: bash
+        run: |
+          set -euo pipefail
+          identity="$(aws sts get-caller-identity --output json)"
+          printf '%s' "$identity" | python3 -c '
+          import json,sys
+          caller=json.load(sys.stdin)
+          expected="arn:aws:sts::349744180170:assumed-role/HobbyHubStagingDeploy/"
+          if caller.get("Account")!="349744180170" or not caller.get("Arn","").startswith(expected):
+              print("Unexpected AWS caller or account; refusing further actions",file=sys.stderr)
+              sys.exit(1)
+          print("PASS: GitHub main branch assumed HobbyHubStagingDeploy in the correct AWS account.")
+          print("No infrastructure changes or AWS resource permissions were requested.")
+          '
