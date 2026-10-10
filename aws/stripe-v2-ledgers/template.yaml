@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Hobby Hub isolated Stripe TEST reconciliation ledgers only. No checkout, webhook endpoint, secrets, stock migration or payment permissions.
+Parameters:
+  Stage:
+    Type: String
+    Default: sandbox
+    AllowedValues: [sandbox]
+    Description: Strictly isolated non-production ledger environment.
+  EnableStripeCheckout:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['false']
+    Description: Deliberately immutable OFF until independently reviewed order, stock, tax, carrier and payment lifecycles exist.
+Resources:
+  StripeTestEventLedger:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      SSESpecification: {SSEEnabled: true}
+      AttributeDefinitions:
+        - {AttributeName: eventId, AttributeType: S}
+      KeySchema:
+        - {AttributeName: eventId, KeyType: HASH}
+      # No TimeToLiveSpecification: event replay guards must never disappear
+      # before all payment, refund, dispute and settlement states are reconciled.
+  StripeTestCheckoutRequestLedger:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      SSESpecification: {SSEEnabled: true}
+      AttributeDefinitions:
+        - {AttributeName: requestId, AttributeType: S}
+      KeySchema:
+        - {AttributeName: requestId, KeyType: HASH}
+      # Preserve checkout request idempotency across repeated client attempts.
+Outputs:
+  LedgerStage:
+    Description: The only supported environment is the sandbox.
+    Value: !Ref Stage
+  StripeTestEventLedgerName:
+    Description: An initially EMPTY retained test-mode event ledger, not a webhook receiver.
+    Value: !Ref StripeTestEventLedger
+  StripeTestEventLedgerArn:
+    Value: !GetAtt StripeTestEventLedger.Arn
+  StripeTestCheckoutRequestLedgerName:
+    Description: An initially EMPTY retained test-mode checkout-request ledger, not an order table.
+    Value: !Ref StripeTestCheckoutRequestLedger
+  StripeTestCheckoutRequestLedgerArn:
+    Value: !GetAtt StripeTestCheckoutRequestLedger.Arn
+  StripeCheckoutEnabled:
+    Value: !Ref EnableStripeCheckout
