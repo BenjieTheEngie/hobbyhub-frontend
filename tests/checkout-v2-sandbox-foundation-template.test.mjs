@@ -43,8 +43,8 @@ test('exactly two fresh DynamoDB tables with correct order and physical product 
     assert.doesNotMatch(s,/^\s+TableName:/m);
     assert.doesNotMatch(s,/^\s+TimeToLiveSpecification:/m);
     assert.doesNotMatch(s,/^\s+StreamSpecification:/m);
-    assert.match(s,/Key: Environment\n          Value: sandbox/);
-    assert.match(s,/Key: CheckoutEnabled\n          Value: 'false'/);
+    assert.match(s,/Key: Environment\n          Value: !Ref Stage/);
+    assert.match(s,/Key: CheckoutEnabled\n          Value: !Ref EnableCheckout/);
   }
 });
 test('no legacy production tables, data import, write operations or scheduled migrations',()=>{
@@ -58,6 +58,7 @@ test('no legacy production tables, data import, write operations or scheduled mi
     if(typeof forbidden==='string')assert.equal(template.includes(forbidden),false,'Forbidden text: '+forbidden);
     else assert.doesNotMatch(template,forbidden);
   }
+  assert.match(template,/Value: !Ref EnableStockMigration/);
   assert.match(template,/Value: !Ref StockV2/);
   assert.match(template,/Value: !Ref OrdersV2/);
 });
