@@ -141,7 +141,8 @@ test('after atomic settlement, same signed TEST event replays without writing or
   const row=client.rows.get(event.id);
   client.rows.set(event.id,{...row,state:'SETTLED',
     settledAt:'2026-10-10T02:05:00.000Z',settledOrderVersion:3});
-  const replay=await recordVerifiedStripeTestEventForReview(args(client));
+  const settledOrder={...order,status:'PAID',paymentStatus:'PAID'};
+  const replay=await recordVerifiedStripeTestEventForReview(args(client,{order:settledOrder}));
   assert.equal(replay.alreadyRecorded,true);
   assert.equal(replay.state,'SETTLED');
   assert.equal(replay.requiresDurableSettlement,false);
@@ -161,7 +162,7 @@ test('invalid settled receipts cannot suppress further verification',async()=>{
     await recordVerifiedStripeTestEventForReview(args(client));
     const original=client.rows.get(event.id);
     client.rows.set(event.id,{...original,...variant});
-    await assert.rejects(()=>recordVerifiedStripeTestEventForReview(args(client)),/metadata|collision|inconsistent/);
+    await assert.rejects(()=>recordVerifiedStripeTestEventForReview(args(client,{order:{...order,status:'PAID',paymentStatus:'PAID'}})),/metadata|collision|inconsistent/);
     assert.equal(client.calls.filter(x=>x.operation==='put').length,1);
   }
 });
