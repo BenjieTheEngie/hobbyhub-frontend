@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Hobby Hub inert Checkout V2 sandbox foundation. Creates ONLY two empty
+  DynamoDB tables. No payment route, Lambda, migration or public API.
+Parameters:
+  Stage:
+    Type: String
+    AllowedValues: [sandbox]
+    Default: sandbox
+  EnableCheckout:
+    Type: String
+    AllowedValues: ['false']
+    Default: 'false'
+    Description: Immutable fail-closed guard; never activated in this stack.
+  EnableStockMigration:
+    Type: String
+    AllowedValues: ['false']
+    Default: 'false'
+    Description: Opening stock balances require a separately approved migration.
+Resources:
+  StockV2:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      AttributeDefinitions:
+        - AttributeName: productId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: productId
+          KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: HobbyHub
+        - Key: Environment
+          Value: !Ref Stage
+        - Key: CheckoutEnabled
+          Value: !Ref EnableCheckout
+  OrdersV2:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      AttributeDefinitions:
+        - AttributeName: orderId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: orderId
+          KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: HobbyHub
+        - Key: Environment
+          Value: !Ref Stage
+        - Key: CheckoutEnabled
+          Value: !Ref EnableCheckout
+Outputs:
+  StockMigrationEnabled:
+    Description: Explicit immutable OFF state for stock migration.
+    Value: !Ref EnableStockMigration
+  StockTableName:
+    Description: Empty Stock V2 table, keyed by productId. Not populated.
+    Value: !Ref StockV2
+  OrdersTableName:
+    Description: Empty Orders V2 table, keyed by orderId. Not populated.
+    Value: !Ref OrdersV2
