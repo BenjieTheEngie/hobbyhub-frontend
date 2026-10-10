@@ -67,6 +67,51 @@ test('same request cannot become new order, altered cart, or changed shipping qu
     {...plan.ledger,quoteHash:'wrong'},plan),/conflicting/);
   assert.throws(()=>reserve({idempotencyTable:'TESTORDERS'}),/Three separate/);
 });
+test('same checkout request cannot be reused with a changed full-address carrier quote',()=>{
+  const committed=(overrides={})=>({
+    ...quote(),carrierRateConfirmedForPayment:true,rateMode:'live',
+    rateProvider:'easypost',shippingAddressVerified:true,
+    shippingDestinationDigest:'hmac-v1-'+'a'.repeat(64),
+    carrierQuoteExpiresAt:'2026-10-09T19:30:00Z',
+    carrierRateIds:['rate_abcdefgh123456'],...overrides
+  });
+  const plan=(q)=>buildIdempotentReservationPlan(q,{
+    stockTable:'TESTSTOCK',orderTable:'TESTORDERS',
+    idempotencyTable:'TESTREQUESTS',
+    orderId:'order-1',now,holdUntil:expires
+  });
+  const original=plan(committed());
+  assert.equal(original.executable,false);
+  assert.equal(original.paymentReady,false);
+  assert.equal(original.order.shippingAddressVerified,true);
+  assert.equal(original.order.shippingDestinationDigest,'hmac-v1-'+'a'.repeat(64));
+  assert.equal(original.order.carrierQuoteExpiresAt,'2026-10-09T19:30:00.000Z');
+  assert.equal(original.order.rateProvider,'easypost');
+  assert.equal('line1' in original.ledger,false);
+  assert.equal('shippingAddress' in original.ledger,false);
+  for(const changed of [
+    {shippingDestinationDigest:'hmac-v1-'+'b'.repeat(64)},
+    {carrierQuoteExpiresAt:'2026-10-09T19:40:00Z'},
+    {carrierRateIds:['rate_different012345']},
+    {rateProvider:'anotherCarrier'},
+    {shippingAddressVerified:false}
+  ]){
+    if(changed.shippingAddressVerified===false){
+      assert.throws(()=>plan(committed(changed)),/Carrier-confirmed/);
+    }else{
+      const altered=plan(committed(changed));
+      assert.notEqual(altered.ledger.quoteHash,original.ledger.quoteHash);
+      assert.throws(()=>verifyIdempotentReservationReplay(original.ledger,altered),/conflicting/);
+    }
+  }
+  for(const invalid of [
+    {shippingDestinationDigest:undefined},
+    {shippingDestinationDigest:'not-an-hmac'},
+    {carrierQuoteExpiresAt:'2026-10-09T18:29:00Z'},
+    {carrierRateIds:[]},
+    {carrierRateIds:['rate_abcdefgh123456','rate_abcdefgh123456']}
+  ])assert.throws(()=>plan(committed(invalid)),/Carrier-confirmed/);
+});
 test('release never runs on pending, paid, unexpired, pickup or international orders',()=>{
   const order=reserve().order;
   assert.throws(()=>expire({...order,status:'PAID',paymentStatus:'PAID'}),/unpaid/);
