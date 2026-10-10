@@ -52,7 +52,9 @@ function validateRecordedEvent(row,event){
   if(row.fingerprint!==event.fingerprint)
     throw Error('Stripe event ID collision with a different verified payload.');
   if(row.state===DURABLE_SETTLED_STATE &&
-    (!Number.isSafeInteger(row.settledOrderVersion)||
+    (row.reviewDisposition!=='RECONCILE_PAID_AND_STOCK_ATOMICALLY'||
+      row.totalAuditDisposition!=='MATCHED_TEST_PAYMENT_REQUIRES_ATOMIC_RECONCILIATION'||
+      !Number.isSafeInteger(row.settledOrderVersion)||
       row.settledOrderVersion<2||
       typeof row.settledAt!=='string'||
       !Number.isFinite(Date.parse(row.settledAt))||
@@ -138,13 +140,32 @@ export async function recordVerifiedStripeTestEventForReview({
       fingerprint:verifiedWebhookEventFingerprint(authenticated)
     };
     validateRecordedEvent(existing.Item,verified);
-    if(!order||order.orderId!==authenticated.orderId||
-       order.stripeSessionId!==authenticated.sessionId||
-       order.paymentMode!=='test'||
-       retrievedSession.payment_status!==authenticated.paymentStatus||
-       retrievedSession.amount_total!==authenticated.amountTotalCents||
+    // A SETTLED event record alone cannot prove the order/stock transaction
+    // committed: require its exact paid event, payment reference, version,
+    // total and terminal state on the freshly read server-owned order.
+    // Fulfillment may advance the order version but must not alter PAID status.
+    if(!['checkout.session.completed','checkout.session.async_payment_succeeded']
+      .includes(authenticated.type) ||
+       authenticated.paymentStatus!=='paid' ||
+       retrievedSession.status!=='complete' ||
+       retrievedSession.payment_status!=='paid' ||
+       typeof retrievedSession.payment_intent!=='string' ||
+       !/^pi_[A-Za-z0-9]{8,100}$/.test(retrievedSession.payment_intent) ||
+       !order || order.orderId!==authenticated.orderId ||
+       order.stripeSessionId!==authenticated.sessionId ||
+       order.paymentSessionId!==authenticated.sessionId ||
+       order.paymentMode!=='test' ||
+       order.status!=='PAID' || order.paymentStatus!=='PAID' ||
+       !['UNFULFILLED','PICKING','PACKED','SHIPPED','DELIVERED']
+         .includes(order.fulfillmentStatus) ||
+       !Number.isSafeInteger(order.version) ||
+       order.version<existing.Item.settledOrderVersion ||
+       order.paymentEventId!==authenticated.eventId ||
+       !Number.isSafeInteger(order.totalCents) ||
+       order.totalCents!==authenticated.amountTotalCents ||
+       retrievedSession.amount_total!==authenticated.amountTotalCents ||
        retrievedSession.currency!==authenticated.currency)
-      throw Error('Already-settled Stripe TEST receipt differs from stored order or provider session.');
+      throw Error('Already-settled Stripe TEST receipt differs from PAID order or provider session.');
     return Object.freeze({
       kind:'stripe-test-ledger-receipt',
       state:DURABLE_SETTLED_STATE,alreadyRecorded:true,
