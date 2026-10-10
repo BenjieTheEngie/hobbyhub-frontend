@@ -293,3 +293,25 @@ test('only the exact TEST event table is permitted and SDK network errors never 
   })),/network failed/);
   assert.equal(client.operations.length,0);
 });
+
+test('negative provider total and malformed reservation timestamp fail before ledger access',async()=>{
+  for(const changed of [
+    {session:{...expiredSession,amount_total:-1},order},
+    {session:expiredSession,order:{...order,reservedUntil:'2026-10-10T12:55:00-04:00'}}
+  ]){
+    const client=db();
+    const request=signed(evt(changed.session));
+    await assert.rejects(()=>recordSignedStripeTestUnpaidEventForReview(args(client,{
+      request,stripeSdk:sdk(changed.session),order:changed.order
+    })));
+    assert.equal(client.operations.length,0);
+  }
+});
+test('corrupted receipt timestamp fails closed instead of returning a duplicate',async()=>{
+  const client=db();
+  await recordSignedStripeTestUnpaidEventForReview(args(client));
+  const saved=client.rows.get(evt().id);
+  client.rows.set(evt().id,{...saved,recordedAt:123});
+  await assert.rejects(()=>recordSignedStripeTestUnpaidEventForReview(args(client)),/inconsistent/);
+  assert.equal(client.operations.filter(x=>x==='put').length,1);
+});
