@@ -111,6 +111,7 @@ export function composeOfflineLiveCarrierCommitment({
     rateProvider:'easypost',rateMode:'live',
     carrierRateConfirmedForPayment:true,
     shippingAddressVerified:true,
+    shippingState:verifiedAddress.state,
     shippingDestinationDigest:digest,
     carrierQuoteExpiresAt:new Date(rateExpiry).toISOString(),
     carrierRateIds:details.map(x=>x.rateId),
