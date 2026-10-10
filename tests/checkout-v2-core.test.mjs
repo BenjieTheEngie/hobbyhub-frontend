@@ -136,16 +136,12 @@ test('only carrier-committed pre-tax quotes can preserve full-destination eviden
     {carrierRateIds:['rate_abcdefgh123456','rate_abcdefgh123456']}
   ]){
     const changed={...locked,...variant};
-    if(variant.carrierRateConfirmedForPayment===false){
-      const downgraded=plan(changed);
-      assert.equal(downgraded.order.shippingAddressVerified,false);
-      // This remains an inert pre-payment reservation proposal.
-      assert.equal('shippingDestinationDigest' in downgraded.order,false);
-    }else{
-      assert.throws(()=>plan(changed),/Carrier-confirmed/);
-    }
+    assert.throws(()=>plan(changed),/Carrier-confirmed|Live carrier quote/);
   }
   assert.throws(()=>plan({...basic,rateMode:'live'}),/Live carrier quote/);
+  const offline=plan(basic);
+  assert.equal(offline.order.shippingAddressVerified,false);
+  assert.equal('shippingDestinationDigest' in offline.order,false);
 });
 test('reservation expiry and unknown order details refuse transaction building',()=>{
   const quote=shippingEstimate(verifyCheckoutQuote(validateCheckoutIntent(request),snapshots({allowDuplicates:true})));
