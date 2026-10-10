@@ -19,7 +19,7 @@ test('Stripe snake_case and carrier camelCase refer to same verified destination
   assert.match(a,/^hmac-v1-[0-9a-f]{64}$/);
   assert.equal(shippingDestinationHmac(stripe,secret),a);
   assert.equal(verifyBoundStripeDestination(stripe,a,secret),true);
-  assert.doesNotMatch(a,/123|Whitman|customer/i);
+  assert.doesNotMatch(a,/Example|Whitman|customer/i);
   assert.equal(Object.hasOwn(canonicalUSShippingDestination(base),'recipient'),false);
 });
 test('any changed street, city, unit, ZIP, state or HMAC key invalidates quoted delivery address',()=>{
