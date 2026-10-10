@@ -12,21 +12,22 @@ These JSON documents describe the **smallest useful first staging step**: potent
 2. **CloudFormation execution role:** **does NOT exist** yet. Proposed name `HobbyHubStagingLedgerCfnExec`, trust document `aws/iam/hobbyhub-ledger-cfn-exec-trust.json`, permission document `aws/iam/hobbyhub-ledger-cfn-exec-policy.json`. Permissions are exclusively non-data DynamoDB table control-plane operations for table name prefixes belonging to the two new sandbox ledgers. Explicitly no `dynamodb:PutItem`, `GetItem`, `Query`, `Scan`, `DeleteItem`, `TransactWriteItems`, IAM principals or old inventory table permissions. No `DeleteTable` provisioned; tables also use CloudFormation Retain/PITR.
 3. The execution role is restricted **by what it can do**, even if someone with separate authority could cause CloudFormation to use it. Its service trust alone does not restrict which CloudFormation stack may invoke it; attaching the exact policy and limiting `iam:PassRole` is essential. Confirm any confused-deputy conditions with AWS IAM before creation.
 
-## Verified read-only policy simulation — October 10, 2026
+## Verified read-only policy simulation — October 9, 2026
 
-AWS IAM `SimulateCustomPolicy` was executed against the exact proposed policy JSON, **without attaching either policy or changing an IAM role**.
+AWS IAM `SimulateCustomPolicy` was executed against the policy documents **without attaching either policy or changing an IAM role**. The execution-role draft had previously been simulated to allow only prefixed staging table control-plane creation while denying writes or original-table access. The **latest tightened GitHub OIDC policy** was subsequently re-simulated as follows:
 
-| Sample operation | Simulation decision | Intended result |
+| Sample operation | Latest decision | Intended result |
 | --- | --- | --- |
-| GitHub role create named sandbox CloudFormation stack | allowed | Expected allow |
-| GitHub role create original `hobbyhub` stack | implicitDeny | Expected deny |
-| GitHub role pass only `HobbyHubStagingLedgerCfnExec` to CloudFormation | allowed | Expected allow |
-| GitHub role pass an unrelated admin role | implicitDeny | Expected deny |
-| CloudFormation role create named Stripe sandbox ledger table | allowed | Expected allow |
-| CloudFormation role create original Inventory table | implicitDeny | Expected deny |
-| CloudFormation role write an item into new sandbox ledger | implicitDeny | Expected deny |
+| GitHub role create a review-only change set in sandbox stack | allowed | Expected allow |
+| GitHub role directly create the sandbox stack | implicitDeny | Expected deny |
+| GitHub role execute any change set for the sandbox stack | implicitDeny | Expected deny |
+| GitHub role create a change set in original `hobbyhub` stack | implicitDeny | Expected deny |
+| GitHub role pass only `HobbyHubStagingLedgerCfnExec` to CloudFormation | allowed (earlier simulated, unchanged policy statement) | Expected allow |
+| GitHub role pass unrelated admin role | implicitDeny (earlier simulated, unchanged statement) | Expected deny |
+| CloudFormation role create matching Stripe sandbox table | allowed (earlier simulated, unchanged policy) | Expected allow |
+| CloudFormation role create original Inventory table or write table items | implicitDeny (earlier simulated, unchanged policy) | Expected deny |
 
-**These are policy simulations, not actual deployment tests.** They cannot guarantee success for all CloudFormation/PITR/tagging operations, template change sets, IAM permission boundaries or organization-level restrictions. Continue independent review before applying.
+**Simulation is not an actual deployment test.** AWS may require other permissions even to create a preview change set for a nonexistent stack. If the preview fails, **do not add `cloudformation:CreateStack` as a shortcut**. Review the exact error and design an equally restricted alternative, keeping full resource creation blocked until deliberately approved. Retained DynamoDB tables and PITR also require explicit cost controls.
 
 ## Approval and deployment sequence
 
