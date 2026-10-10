@@ -1,0 +1,86 @@
+name: Preview Stripe sandbox ledgers in AWS (NO DEPLOY)
+# Operator-triggered only. NEVER execute a CloudFormation change set here.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type PREVIEW_NO_DEPLOY to create only an unexecuted CloudFormation change set'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    if: github.ref == 'refs/heads/main' && inputs.confirm == 'PREVIEW_NO_DEPLOY'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout verified main branch
+        uses: actions/checkout@v4
+      - name: Install AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+      - name: Validate only the inert Stripe ledger template
+        shell: bash
+        run: |
+          set -euo pipefail
+          sam validate --lint --template-file aws/stripe-v2-ledgers/template.yaml
+          grep -q "AllowedValues: \['false'\]" aws/stripe-v2-ledgers/template.yaml
+          test "$(grep -c 'Type: AWS::DynamoDB::Table' aws/stripe-v2-ledgers/template.yaml)" -eq 2
+          ! grep -Eq 'Type: AWS::(IAM|Lambda|SecretsManager)|AWS::Serverless::(Function|HttpApi)' aws/stripe-v2-ledgers/template.yaml
+      - name: Acquire short-lived restricted GitHub OIDC credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::349744180170:role/HobbyHubStagingDeploy
+          role-session-name: HobbyHubLedgerPreview
+          role-duration-seconds: 900
+          aws-region: us-east-2
+          allowed-account-ids: '349744180170'
+          mask-aws-account-id: true
+      - name: Verify AWS identity and ensure sandbox ledger stack does not already exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws sts get-caller-identity --query 'Arn' --output text |
+            grep -q '^arn:aws:sts::349744180170:assumed-role/HobbyHubStagingDeploy/'
+          stack=hobbyhub-stripe-sandbox-ledgers
+          if aws cloudformation describe-stacks --stack-name "$stack" >/dev/null 2>&1; then
+            echo "::error::Sandbox ledger stack already exists. No modification permitted by preview workflow."
+            exit 1
+          fi
+      - name: Create a review-only CloudFormation change set (NO EXECUTION)
+        shell: bash
+        run: |
+          set -euo pipefail
+          stack=hobbyhub-stripe-sandbox-ledgers
+          preview="hobbyhub-review-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          aws cloudformation create-change-set \
+            --stack-name "$stack" \
+            --change-set-name "$preview" \
+            --change-set-type CREATE \
+            --template-body file://aws/stripe-v2-ledgers/template.yaml \
+            --parameters ParameterKey=Stage,ParameterValue=sandbox ParameterKey=EnableStripeCheckout,ParameterValue=false \
+            --role-arn arn:aws:iam::349744180170:role/HobbyHubStagingLedgerCfnExec \
+            --tags Key=Project,Value=HobbyHub Key=Environment,Value=sandbox \
+            --region us-east-2 >/dev/null
+          aws cloudformation wait change-set-create-complete --stack-name "$stack" --change-set-name "$preview" --region us-east-2
+          aws cloudformation describe-change-set --stack-name "$stack" --change-set-name "$preview" \
+            --query 'Changes[].ResourceChange.[Action,LogicalResourceId,ResourceType]' \
+            --output json --region us-east-2 > /tmp/hobbyhub-review-resources.json
+          python3 - <<'PY'
+          import json
+          expected=[
+            ["Add","StripeTestCheckoutRequestLedger","AWS::DynamoDB::Table"],
+            ["Add","StripeTestEventLedger","AWS::DynamoDB::Table"]
+          ]
+          with open('/tmp/hobbyhub-review-resources.json',encoding='utf-8') as f:
+              actual=json.load(f)
+          if sorted(actual)!=sorted(expected):
+              raise SystemExit('Refusing review: unexpected CloudFormation resource changes')
+          print('SAFE PREVIEW ONLY: exactly two new sandbox DynamoDB table changes proposed.')
+          print('NO DynamoDB tables have been created. Change set remains UNEXECUTED.')
+          PY
