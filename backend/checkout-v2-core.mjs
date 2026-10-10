@@ -111,12 +111,25 @@ function checkedCarrierCommitment(quote,holdUntil) {
      !Array.isArray(quote.carrierRateIds)||quote.carrierRateIds.length<1||
      quote.carrierRateIds.length>8||
      quote.carrierRateIds.some(id=>typeof id!=='string'||!RATE_ID.test(id))||
-     new Set(quote.carrierRateIds).size!==quote.carrierRateIds.length)
-    throw Error('Carrier-confirmed prepayment quote requires a full address HMAC, unexpired rates and verified parcel IDs.');
+     new Set(quote.carrierRateIds).size!==quote.carrierRateIds.length||
+     !Number.isSafeInteger(quote.ratedParcelCount)||
+     quote.ratedParcelCount!==quote.carrierRateIds.length||
+     quote.ratedParcelCount!==quote.items.reduce((sum,item)=>sum+item.qty,0)||
+     !Array.isArray(quote.carrierRateDetails)||
+     quote.carrierRateDetails.length!==quote.ratedParcelCount||
+     quote.carrierRateDetails.some((rate,i)=>
+       !rate||rate.rateId!==quote.carrierRateIds[i]||
+       !Number.isSafeInteger(rate.shippingCents)||
+       rate.shippingCents<1||rate.shippingCents>50000)||
+     quote.carrierRateDetails.reduce((total,rate)=>total+rate.shippingCents,0)!==
+       quote.shippingCents)
+    throw Error('Carrier-confirmed prepayment quote requires a full address HMAC, unexpired per-unit parcel rates and exact verified shipping sum.');
   return Object.freeze({
     shippingDestinationDigest:quote.shippingDestinationDigest,
     carrierQuoteExpiresAt:new Date(quote.carrierQuoteExpiresAt).toISOString(),
     carrierRateIds:[...quote.carrierRateIds],
+    ratedParcelCount:quote.ratedParcelCount,
+    carrierRateDetails:quote.carrierRateDetails.map(({rateId,shippingCents})=>({rateId,shippingCents})),
     rateProvider:quote.rateProvider,
     rateMode:'live'
   });
