@@ -13,12 +13,13 @@ const execActions=execution.Statement.flatMap(s=>Array.isArray(s.Action)?s.Actio
 test('GitHub deployment role can alter only its one known sandbox CloudFormation stack',()=>{
   assert.equal(github.Version,'2012-10-17');
   assert.equal(statements.length,2);
-  const cfn=statements.find(x=>x.Sid==='CloudFormationOnlyForSandboxStripeLedgerStack');
+  const cfn=statements.find(x=>x.Sid==='PreviewOnlySandboxStripeLedgerCloudFormationChangeSet');
   assert.equal(cfn.Resource,'arn:aws:cloudformation:us-east-2:349744180170:stack/hobbyhub-stripe-sandbox-ledgers/*');
   assert.equal(cfn.Effect,'Allow');
   for(const action of cfn.Action)assert.match(action,/^cloudformation:/);
   assert.ok(cfn.Action.includes('cloudformation:CreateChangeSet'));
-  assert.ok(cfn.Action.includes('cloudformation:ExecuteChangeSet'));
+  assert.ok(!cfn.Action.includes('cloudformation:ExecuteChangeSet'));
+  assert.ok(!cfn.Action.includes('cloudformation:UpdateStack'));
   assert.ok(!cfn.Action.includes('cloudformation:DeleteStack'));
   assert.ok(!cfn.Action.includes('cloudformation:CreateStackSet'));
 });
