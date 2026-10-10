@@ -41,6 +41,9 @@ Resources:
         - {AttributeName: requestId, KeyType: HASH}
       # Preserve checkout request idempotency across repeated client attempts.
 Outputs:
+  LedgerStage:
+    Description: The only supported environment is the sandbox.
+    Value: !Ref Stage
   StripeTestEventLedgerName:
     Description: An initially EMPTY retained test-mode event ledger, not a webhook receiver.
     Value: !Ref StripeTestEventLedger
