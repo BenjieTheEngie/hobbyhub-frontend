@@ -1,5 +1,6 @@
 import {retrieveSignedStripeTestSession} from './stripe-test-session-fetch.mjs';
 import {reviewStripeTestCheckoutReconciliation} from './stripe-v2-reconciliation.mjs';
+import {verifiedWebhookEventFingerprint} from './payment-webhook-review.mjs';
 
 /**
  * NOT a Lambda handler. Offline-testable, source-only adapter for the already
@@ -13,6 +14,7 @@ import {reviewStripeTestCheckoutReconciliation} from './stripe-v2-reconciliation
 const TABLE=/^hobbyhub-stripe-sandbox-ledgers-StripeTestEventLedger-[A-Z0-9]{8,32}$/;
 const HEX=/^[a-f0-9]{64}$/;
 const RECORD_STATE='PENDING_REVIEW';
+const DURABLE_SETTLED_STATE='SETTLED';
 const DISPOSITIONS=new Set([
   'ALREADY_REVIEWED',
   'RECONCILE_PAID_AND_STOCK_ATOMICALLY',
@@ -41,13 +43,22 @@ function checkedAtISO(value){
 }
 function validateRecordedEvent(row,event){
   if(!row||typeof row!=='object'||Array.isArray(row)||
-     row.schemaVersion!==1||row.state!==RECORD_STATE||
+     row.schemaVersion!==1||
+     ![RECORD_STATE,DURABLE_SETTLED_STATE].includes(row.state)||
      row.eventId!==event.eventId||row.provider!=='stripe'||row.mode!=='test'||
      !HEX.test(row.fingerprint||'')||
      row.orderId!==event.orderId||row.sessionId!==event.sessionId)
     throw Error('Existing Stripe event ledger row is inconsistent: manual review required.');
   if(row.fingerprint!==event.fingerprint)
     throw Error('Stripe event ID collision with a different verified payload.');
+  if(row.state===DURABLE_SETTLED_STATE &&
+    (!Number.isSafeInteger(row.settledOrderVersion)||
+      row.settledOrderVersion<2||
+      typeof row.settledAt!=='string'||
+      !Number.isFinite(Date.parse(row.settledAt))||
+      !Number.isFinite(Date.parse(row.recordedAt))||
+      Date.parse(row.settledAt)<Date.parse(row.recordedAt)))
+    throw Error('Settled Stripe receipt requires durable matching transaction metadata.');
 }
 function makeRecord(review,checkedAt){
   if(!review||review.kind!=='stripe-test-v2-inert-reconciliation'||
@@ -115,6 +126,35 @@ export async function recordVerifiedStripeTestEventForReview({
   if(existing===null||typeof existing!=='object'||Array.isArray(existing))
     throw Error('Trusted DynamoDB Get result is required.');
 
+  // A paid/settled order is no longer RESERVED. Duplicate deliveries of
+  // the already-SETTLED signed event must return a NO-WRITE receipt without
+  // re-running pre-payment audits that correctly require RESERVED status.
+  // Verify signature, server-retrieved provider session, immutable event
+  // fingerprint and order identity FIRST; never authorize a stock action.
+  if(existing.Item?.state===DURABLE_SETTLED_STATE){
+    const verified={
+      eventId:authenticated.eventId,orderId:authenticated.orderId,
+      sessionId:authenticated.sessionId,
+      fingerprint:verifiedWebhookEventFingerprint(authenticated)
+    };
+    validateRecordedEvent(existing.Item,verified);
+    if(!order||order.orderId!==authenticated.orderId||
+       order.stripeSessionId!==authenticated.sessionId||
+       order.paymentMode!=='test'||
+       retrievedSession.payment_status!==authenticated.paymentStatus||
+       retrievedSession.amount_total!==authenticated.amountTotalCents||
+       retrievedSession.currency!==authenticated.currency)
+      throw Error('Already-settled Stripe TEST receipt differs from stored order or provider session.');
+    return Object.freeze({
+      kind:'stripe-test-ledger-receipt',
+      state:DURABLE_SETTLED_STATE,alreadyRecorded:true,
+      eventId:authenticated.eventId,orderId:authenticated.orderId,
+      requiresDurableSettlement:false,
+      paymentWriteAuthorized:false,stockWriteAuthorized:false,
+      fulfillmentAuthorized:false,checkoutEnabled:false
+    });
+  }
+
   const previousEvents=new Map();
   if(OWN(existing,'Item')&&existing.Item!==undefined){
     if(!existing.Item||typeof existing.Item!=='object')
@@ -137,9 +177,9 @@ export async function recordVerifiedStripeTestEventForReview({
     validateRecordedEvent(existing.Item,record);
     return Object.freeze({
       kind:'stripe-test-ledger-receipt',
-      state:RECORD_STATE,alreadyRecorded:true,eventId:record.eventId,
+      state:existing.Item.state,alreadyRecorded:true,eventId:record.eventId,
       orderId:record.orderId,
-      requiresDurableSettlement:true,
+      requiresDurableSettlement:existing.Item.state!==DURABLE_SETTLED_STATE,
       paymentWriteAuthorized:false,stockWriteAuthorized:false,
       fulfillmentAuthorized:false,checkoutEnabled:false
     });
@@ -162,9 +202,9 @@ export async function recordVerifiedStripeTestEventForReview({
     validateRecordedEvent(raced.Item,record);
     return Object.freeze({
       kind:'stripe-test-ledger-receipt',
-      state:RECORD_STATE,alreadyRecorded:true,eventId:record.eventId,
+      state:raced.Item.state,alreadyRecorded:true,eventId:record.eventId,
       orderId:record.orderId,
-      requiresDurableSettlement:true,
+      requiresDurableSettlement:raced.Item.state!==DURABLE_SETTLED_STATE,
       paymentWriteAuthorized:false,stockWriteAuthorized:false,
       fulfillmentAuthorized:false,checkoutEnabled:false
     });
