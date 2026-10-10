@@ -1,5 +1,7 @@
 # Stripe V2 — isolated sandbox ledger infrastructure
 
+> **DEPLOYED 2026-10-10 UTC:** The owner executed the exact two-table change set. Both Stripe sandbox ledger tables are ACTIVE, empty, encrypted, and PITR-enabled; original Products (7) and Inventory (7, 301 units) unchanged. Older text below describes the pre-deployment planning state and is historical. See [actual AWS verification](STRIPE_LEDGER_DEPLOYMENT_VERIFICATION_20261010.md). **Do not redeploy the original CREATE change set; do not enable Stripe payments.**
+
 **Source-only; no deployment made. Creating these tables later incurs AWS charges.** The existing AWS root-connected account, Products and Inventory tables were NOT changed when this template was added.
 
 `aws/stripe-v2-ledgers/template.yaml` is an independent sandbox CloudFormation/SAM foundation containing **only** two empty DynamoDB tables with random CloudFormation-managed names:

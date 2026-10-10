@@ -4,6 +4,21 @@
 >
 > **Authoritative source:** GitHub repository `BenjieTheEngie/hobbyhub-frontend`, branch `main`. Do not rely on this document instead of checking current GitHub commits, CI results and actual AWS resources before changes.
 
+## LIVE AWS state update — Stripe sandbox ledgers now deployed (2026-10-10 UTC)
+
+**This supersedes older sections that say no sandbox ledgers are deployed.** The merchant approved and manually executed the exact reviewed CloudFormation change set `hobbyhub-review-38016180343-1`. AWS account `349744180170`, `us-east-2`:
+
+- CloudFormation stack **`hobbyhub-stripe-sandbox-ledgers` CREATE_COMPLETE** with **exactly two tables**, no APIs, webhook Lambda, Stock V2 or Orders V2:
+  - `hobbyhub-stripe-sandbox-ledgers-StripeTestCheckoutRequestLedger-12OAC8XV01K6S` — `requestId` string key.
+  - `hobbyhub-stripe-sandbox-ledgers-StripeTestEventLedger-1TS67SSV8ILV5` — `eventId` string key.
+- Both tables **ACTIVE**, `PAY_PER_REQUEST`, encryption at rest ENABLED, point-in-time recovery ENABLED, and **zero records** confirmed by strongly consistent `Scan(Select=COUNT)`. CloudFormation `DeletionPolicy/UpdateReplacePolicy: Retain`.
+- Original source tables **still ACTIVE** with PITR enabled: **7 Products records** and **7 Inventory records totaling 301 `quantityOnHand` units**, strongly consistently read after deployment. No original stock migration or assistant mutation occurred.
+- Stack parameters explicitly `Stage=sandbox` and `EnableStripeCheckout=false`. **No Stripe live/test Checkout Session creation, webhook endpoints, server-side payment execution, payment settlement or automatic fulfillment are deployed.**
+- Roles already present: `HobbyHubStagingDeploy` with *preview-only* permissions, `HobbyHubStagingLedgerCfnExec` with table **control-plane only**, not item reads/writes. AWS Core connector **still assumes root**; use it READ-ONLY, do not deploy as root.
+- Next: cost budget alert and isolated test-only data-plane webhook/order/reservation architecture + IAM review and owner approval for additional AWS costs/stock writes. Do not rerun the new-stack-only preview workflow after stack creation.
+
+Detailed authoritative verification: `docs/STRIPE_LEDGER_DEPLOYMENT_VERIFICATION_20261010.md`. This section takes precedence over older dated rollout instructions in the handoff.
+
 ## Continuation update — 2026-10-09 (after prior handoff)
 
 **Most recent completed work and verified state:**
