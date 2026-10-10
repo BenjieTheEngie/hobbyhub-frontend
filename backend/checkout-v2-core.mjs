@@ -94,7 +94,7 @@ export function verifyCheckoutQuote(intent,{productsById,stockById,skuCounts}) {
  */
 const SHIPPING_HMAC=/^hmac-v1-[a-f0-9]{64}$/;
 const RATE_ID=/^rate_[A-Za-z0-9]{8,80}$/;
-function checkedCarrierCommitment(quote,now) {
+function checkedCarrierCommitment(quote,holdUntil) {
   if(quote.carrierRateConfirmedForPayment!==true){
     if(quote.rateMode==='live')
       throw Error('Live carrier quote cannot omit server-confirmed payment eligibility.');
@@ -107,7 +107,7 @@ function checkedCarrierCommitment(quote,now) {
      typeof quote.carrierQuoteExpiresAt!=='string'||
      !/^\\d{4}-\\d{2}-\\d{2}T.*Z$/.test(quote.carrierQuoteExpiresAt)||
      !Number.isFinite(Date.parse(quote.carrierQuoteExpiresAt))||
-     Date.parse(quote.carrierQuoteExpiresAt)<=Date.parse(now)||
+     Date.parse(quote.carrierQuoteExpiresAt)<=Date.parse(holdUntil)||
      !Array.isArray(quote.carrierRateIds)||quote.carrierRateIds.length<1||
      quote.carrierRateIds.length>8||
      quote.carrierRateIds.some(id=>typeof id!=='string'||!RATE_ID.test(id))||
@@ -136,7 +136,7 @@ export function buildReservationTransactions(quote,{stockTable,orderTable,orderI
      quote.taxCents!==null || quote.totalCents!==null ||
      quote.preTaxCents!==quote.subtotalCents+quote.shippingCents)
     throw Error('Approved U.S. shipping estimate required; tax and charge total must remain pending.');
-  const committedCarrier=checkedCarrierCommitment(quote,now);
+  const committedCarrier=checkedCarrierCommitment(quote,holdUntil);
   const stockWrites=quote.items.map(item=>({
     Update:{
       TableName:stockTable,Key:{productId:item.productId},
