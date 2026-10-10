@@ -221,6 +221,15 @@ export async function recordVerifiedStripeTestEventForReview({
     if(!raced||!OWN(raced,'Item')||raced.Item===undefined)
       throw Error('Stripe event conditional conflict without readable durable record.');
     validateRecordedEvent(raced.Item,record);
+    // Another worker may have BOTH inserted and atomically SETTLED the row
+    // before this losing worker completed its conditional Put. This request's
+    // order was read BEFORE that concurrent settlement and can still be
+    // RESERVED, so it cannot attest that the Order V2/Stock V2 transaction
+    // succeeded. Never say "settled" from the event row alone: force a
+    // future webhook retry to re-read the actual paid Order V2 snapshot and
+    // follow the independently validated SETTLED replay branch above.
+    if(raced.Item.state===DURABLE_SETTLED_STATE)
+      throw Error('Concurrent Stripe event settlement requires a fresh, strongly consistent paid-order reread.');
     return Object.freeze({
       kind:'stripe-test-ledger-receipt',
       state:raced.Item.state,alreadyRecorded:true,eventId:record.eventId,
