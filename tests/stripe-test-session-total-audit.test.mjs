@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {auditStripeSandboxSessionTotals} from '../backend/stripe-test-session-total-audit.mjs';
+import {shippingDestinationHmac} from '../backend/stripe-shipping-bind.mjs';
+
+const destinationKey=Buffer.from('hobbyhub-offline-only-key-NOT-a-production-secret-0001');
+const shippingAddress=Object.freeze({
+  country:'US',state:'MA',postal_code:'02382',city:'Whitman',
+  line1:'DO_NOT_EXPORT_CUSTOMER_ADDRESS',line2:''
+});
 
 const order={
   orderId:'order-verified-01',stripeSessionId:'cs_test_abcdefghijkl',
@@ -8,6 +15,8 @@ const order={
   fulfillmentStatus:'UNFULFILLED',currency:'usd',shippingCountry:'US',
   shippingMethod:'domestic_shipping',pickupAvailable:false,
   shippingAddressVerified:true,shippingState:'MA',
+  shippingDestinationDigest:shippingDestinationHmac(shippingAddress,destinationKey),
+  carrierQuoteExpiresAt:'2026-10-09T22:00:00Z',
   subtotalCents:1500,shippingCents:499,taxCents:126,totalCents:2125,
   reservedUntil:'2026-10-09T21:00:00Z',
   items:[{productId:'immutable-1',sku:'MTG-X',qty:2,unitPriceCents:750,lineTotalCents:1500}]
@@ -20,11 +29,12 @@ const session={
   total_details:{amount_tax:126,amount_discount:0},
   automatic_tax:{enabled:true,status:'complete'},
   status:'complete',payment_status:'paid',payment_intent:'pi_abcdefghijkl',
-  collected_information:{shipping_details:{address:{country:'US',state:'MA',postal_code:'02382',
-    line1:'DO_NOT_EXPORT_CUSTOMER_ADDRESS'}}}
+  collected_information:{shipping_details:{address:shippingAddress}}
 };
 const when='2026-10-09T20:00:00Z';
-const audit=(s=session,o=order,at=when)=>auditStripeSandboxSessionTotals({session:s,order:o,checkedAt:at});
+const audit=(s=session,o=order,at=when)=>auditStripeSandboxSessionTotals({
+  session:s,order:o,checkedAt:at,destinationSigningKey:destinationKey
+});
 test('matched test payment requires atomic signed-event reconciliation and never authorizes fulfillment',()=>{
   const result=audit();
   assert.deepEqual(result,{
@@ -92,6 +102,31 @@ test('shipping must match approved 50-state+DC destination and unchanged order s
   assert.throws(()=>audit({...session,collected_information:{shipping_details:{address:{...addr,state:'NY'}}}}),/destination changed/);
   assert.throws(()=>audit(session,{...order,shippingState:'NY'}),/destination changed/);
   assert.equal(audit({...session,collected_information:undefined,shipping_details:{address:addr}}).amountCents,2125);
+});
+test('rejects changed street, city, same-state ZIP or malformed address despite matching cents',()=>{
+  const address=shippingAddress;
+  for(const [field,value] of [
+    ['line1','Another house on same block'],
+    ['city','Brockton'],
+    ['postal_code','02351'],
+    ['line2','Suite B']
+  ]){
+    const changed={...session,collected_information:{shipping_details:{address:{...address,[field]:value}}}};
+    assert.throws(()=>audit(changed),/address differs/);
+  }
+  assert.throws(()=>audit(session,{...order,shippingDestinationDigest:null}),/binding/);
+  assert.throws(()=>audit(session,{...order,shippingDestinationDigest:'hmac-v1-'+ 'f'.repeat(64)}),/address differs/);
+  assert.throws(()=>auditStripeSandboxSessionTotals({session,order,checkedAt:when}),/server-only HMAC key/);
+});
+test('rejects expired, missing and malformed carrier quotes despite paid Stripe session',()=>{
+  assert.throws(()=>audit(session,{...order,carrierQuoteExpiresAt:'2026-10-09T19:59:59Z'}),/expired/);
+  assert.throws(()=>audit(session,{...order,carrierQuoteExpiresAt:null}),/timestamp/);
+  assert.throws(()=>audit(session,{...order,carrierQuoteExpiresAt:'not-a-timestamp'}),/timestamp/);
+});
+test('normalization permits harmless address case and whitespace differences while preserving binding',()=>{
+  const changed={...shippingAddress,city:'   WHITMAN ',line1:'do_not_export_customer_address  ',
+    state:'ma',country:'us'};
+  assert.equal(audit({...session,collected_information:{shipping_details:{address:changed}}}).amountCents,2125);
 });
 test('rejects missing payment intent, amount out of bounds, bad order line identity and invalid timestamps',()=>{
   assert.throws(()=>audit({...session,payment_intent:null}),/payment-intent/);
