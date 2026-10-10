@@ -48,6 +48,7 @@ export function reviewStripeTestCheckoutReconciliation({
   return Object.freeze({
     kind:'stripe-test-v2-inert-reconciliation',
     eventId:event.eventId,orderId:event.orderId,sessionId:event.sessionId,
+    fingerprint:review.fingerprint,
     disposition:review.disposition,totalAuditDisposition:totals.disposition,
     pendingAtomicSettlement,
     requiresHumanReview,
