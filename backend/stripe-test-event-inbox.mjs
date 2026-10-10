@@ -1,4 +1,4 @@
-import {verifyStripeSandboxEnvelope} from './stripe-sandbox-webhook-boundary.mjs';
+import {retrieveSignedStripeTestSession} from './stripe-test-session-fetch.mjs';
 import {reviewStripeTestCheckoutReconciliation} from './stripe-v2-reconciliation.mjs';
 
 /**
@@ -92,7 +92,7 @@ function isConditionalConflict(error){
  * separate durable order+stock reconciliation before any fulfillment.
  */
 export async function recordVerifiedStripeTestEventForReview({
-  request,stripeSdk,webhookSigningSecret,retrievedSession,order,
+  request,stripeSdk,webhookSigningSecret,order,
   checkedAt,destinationSigningKey,ledgerClient,eventTable
 }={}){
   const name=tableName(eventTable);
@@ -101,10 +101,12 @@ export async function recordVerifiedStripeTestEventForReview({
     throw Error('A trusted consistent-read, conditional-write TEST ledger client is required.');
   const stamp=checkedAtISO(checkedAt);
 
-  // Authentication is done before any lookup or durable ledger write.
-  const authenticated=verifyStripeSandboxEnvelope({
-    request,stripeSdk,webhookSigningSecret
-  }).event;
+  // Authenticate FIRST and retrieve Stripe's Session through a trusted
+  // server-owned SDK before the first database read or write.
+  const {event:authenticated,session:retrievedSession}=
+    await retrieveSignedStripeTestSession({
+      request,stripeSdk,webhookSigningSecret
+    });
   const key=Object.freeze({eventId:authenticated.eventId});
   const lookup=async()=>ledgerClient.get({
     TableName:name,Key:key,ConsistentRead:true
