@@ -135,13 +135,17 @@ test('repeated delivery of exact same event uses consistent read and causes no s
   assert.deepEqual(client.calls.map(x=>x.operation),['get','put','get']);
   assert.equal(client.rows.size,1);
 });
+function paidOrder(overrides={}) {
+  return {...order,status:'PAID',paymentStatus:'PAID',version:3,
+    paymentEventId:event.id,...overrides};
+}
 test('after atomic settlement, same signed TEST event replays without writing or recapturing stock',async()=>{
   const client=store();
   await recordVerifiedStripeTestEventForReview(args(client));
   const row=client.rows.get(event.id);
   client.rows.set(event.id,{...row,state:'SETTLED',
     settledAt:'2026-10-10T02:05:00.000Z',settledOrderVersion:3});
-  const settledOrder={...order,status:'PAID',paymentStatus:'PAID'};
+  const settledOrder=paidOrder();
   const replay=await recordVerifiedStripeTestEventForReview(args(client,{order:settledOrder}));
   assert.equal(replay.alreadyRecorded,true);
   assert.equal(replay.state,'SETTLED');
@@ -150,6 +154,82 @@ test('after atomic settlement, same signed TEST event replays without writing or
     'fulfillmentAuthorized','checkoutEnabled'])
     assert.equal(replay[field],false);
   assert.equal(client.calls.filter(c=>c.operation==='put').length,1);
+});
+test('settled replay requires the actual paid order, matching event id and captured order version',async()=>{
+  const badOrders=[
+    {status:'RESERVED',paymentStatus:'PENDING'},
+    {status:'CANCELLED'}, {status:'REFUNDED'},
+    {paymentStatus:'PENDING'}, {paymentStatus:'REFUNDED'},
+    {version:2}, {version:0}, {version:2.5}, {version:undefined},
+    {paymentEventId:undefined}, {paymentEventId:'evt_different123456'},
+    {paymentSessionId:'cs_test_different987654'},
+    {stripeSessionId:'cs_test_different987654'},
+    {totalCents:1899}, {paymentMode:'live'},
+    {fulfillmentStatus:'CANCELLED'}
+  ];
+  for(const variant of badOrders){
+    const client=store();
+    await recordVerifiedStripeTestEventForReview(args(client));
+    const row=client.rows.get(event.id);
+    client.rows.set(event.id,{...row,state:'SETTLED',
+      settledAt:'2026-10-10T02:05:00Z',settledOrderVersion:3});
+    await assert.rejects(
+      ()=>recordVerifiedStripeTestEventForReview(args(client,{order:paidOrder(variant)})),
+      /PAID order|provider session/
+    );
+    assert.equal(client.calls.filter(x=>x.operation==='put').length,1);
+  }
+});
+test('settled paid order replay is still no-write after legitimate fulfillment version advances',async()=>{
+  const client=store();
+  await recordVerifiedStripeTestEventForReview(args(client));
+  const row=client.rows.get(event.id);
+  client.rows.set(event.id,{...row,state:'SETTLED',
+    settledAt:'2026-10-10T02:05:00Z',settledOrderVersion:3});
+  const result=await recordVerifiedStripeTestEventForReview(args(client,{
+    order:paidOrder({version:7,fulfillmentStatus:'SHIPPED'})
+  }));
+  assert.equal(result.state,'SETTLED');
+  assert.equal(result.alreadyRecorded,true);
+  assert.equal(result.requiresDurableSettlement,false);
+  assert.equal(client.calls.filter(x=>x.operation==='put').length,1);
+});
+test('unpaid, incomplete or invalid Stripe provider response cannot justify settled replay',async()=>{
+  const badProviderSessions=[
+    {...session,payment_status:'unpaid',payment_intent:null},
+    {...session,status:'expired'},
+    {...session,status:'open'},
+    {...session,payment_intent:null},
+    {...session,payment_intent:'pi_bad'}
+  ];
+  for(const retrieved of badProviderSessions){
+    const client=store();
+    await recordVerifiedStripeTestEventForReview(args(client));
+    const row=client.rows.get(event.id);
+    client.rows.set(event.id,{...row,state:'SETTLED',
+      settledAt:'2026-10-10T02:05:00Z',settledOrderVersion:3});
+    await assert.rejects(()=>recordVerifiedStripeTestEventForReview(args(client,{
+      order:paidOrder(),stripeSdk:sdkWithSession(retrieved)
+    })),/PAID order|provider session/);
+    assert.equal(client.calls.filter(x=>x.operation==='put').length,1);
+  }
+});
+test('a forged pending or failed event receipt cannot masquerade as settled',async()=>{
+  for(const badField of [
+    {reviewDisposition:'WAIT_FOR_VERIFIED_PAYMENT'},
+    {reviewDisposition:'REVIEW_RELEASE_WITH_LATE_PAYMENT_SAFEGUARDS'},
+    {totalAuditDisposition:'AWAIT_PROVIDER_PAYMENT'}
+  ]){
+    const client=store();
+    await recordVerifiedStripeTestEventForReview(args(client));
+    const row=client.rows.get(event.id);
+    client.rows.set(event.id,{...row,...badField,state:'SETTLED',
+      settledAt:'2026-10-10T02:05:00Z',settledOrderVersion:3});
+    await assert.rejects(()=>recordVerifiedStripeTestEventForReview(args(client,{
+      order:paidOrder()
+    })),/metadata/);
+    assert.equal(client.calls.filter(x=>x.operation==='put').length,1);
+  }
 });
 test('invalid settled receipts cannot suppress further verification',async()=>{
   for(const variant of [
@@ -162,7 +242,7 @@ test('invalid settled receipts cannot suppress further verification',async()=>{
     await recordVerifiedStripeTestEventForReview(args(client));
     const original=client.rows.get(event.id);
     client.rows.set(event.id,{...original,...variant});
-    await assert.rejects(()=>recordVerifiedStripeTestEventForReview(args(client,{order:{...order,status:'PAID',paymentStatus:'PAID'}})),/metadata|collision|inconsistent/);
+    await assert.rejects(()=>recordVerifiedStripeTestEventForReview(args(client,{order:paidOrder()})),/metadata|collision|inconsistent/);
     assert.equal(client.calls.filter(x=>x.operation==='put').length,1);
   }
 });
