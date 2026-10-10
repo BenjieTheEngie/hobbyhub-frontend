@@ -108,7 +108,15 @@ test('only carrier-committed pre-tax quotes can preserve full-destination eviden
     ...basic,carrierRateConfirmedForPayment:true,rateMode:'live',
     rateProvider:'easypost',shippingAddressVerified:true,
     shippingDestinationDigest:'hmac-v1-'+'a'.repeat(64),
-    carrierRateIds:['rate_abcdefgh123456'],
+    carrierRateIds:[
+      'rate_abcdefgh123456','rate_qwertyuiop123456','rate_mnopqrstuv123456'
+    ],
+    ratedParcelCount:3,
+    carrierRateDetails:[
+      {rateId:'rate_abcdefgh123456',shippingCents:300},
+      {rateId:'rate_qwertyuiop123456',shippingCents:250},
+      {rateId:'rate_mnopqrstuv123456',shippingCents:300}
+    ],
     carrierQuoteExpiresAt:'2026-10-09T11:00:00Z'
   };
   const plan=(q)=>buildReservationTransactions(q,{
@@ -119,6 +127,8 @@ test('only carrier-committed pre-tax quotes can preserve full-destination eviden
   assert.equal(receipt.order.shippingAddressVerified,true);
   assert.equal(receipt.order.shippingDestinationDigest,locked.shippingDestinationDigest);
   assert.deepEqual(receipt.order.carrierRateIds,locked.carrierRateIds);
+  assert.equal(receipt.order.ratedParcelCount,3);
+  assert.deepEqual(receipt.order.carrierRateDetails,locked.carrierRateDetails);
   assert.equal(receipt.order.carrierQuoteExpiresAt,new Date(locked.carrierQuoteExpiresAt).toISOString());
   assert.equal(receipt.order.rateMode,'live');
   assert.equal('line1' in receipt.order,false);
@@ -133,7 +143,18 @@ test('only carrier-committed pre-tax quotes can preserve full-destination eviden
     {carrierQuoteExpiresAt:'2026-10-09T10:30:00Z'},
     {carrierQuoteExpiresAt:'bad'},
     {carrierRateIds:[]}, {carrierRateIds:['bad']},
-    {carrierRateIds:['rate_abcdefgh123456','rate_abcdefgh123456']}
+    {carrierRateIds:['rate_abcdefgh123456','rate_abcdefgh123456']},
+    {ratedParcelCount:1},
+    {ratedParcelCount:4},
+    {carrierRateDetails:[...locked.carrierRateDetails.slice(0,2)]},
+    {carrierRateDetails:[
+      {...locked.carrierRateDetails[0],shippingCents:100},
+      ...locked.carrierRateDetails.slice(1)
+    ]},
+    {carrierRateDetails:[
+      {...locked.carrierRateDetails[0],rateId:'rate_different012345'},
+      ...locked.carrierRateDetails.slice(1)
+    ]}
   ]){
     const changed={...locked,...variant};
     assert.throws(()=>plan(changed),/Carrier-confirmed|Live carrier quote|Carrier TEST quotes/);
