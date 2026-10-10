@@ -23,7 +23,8 @@ function secretKey(key){
 }
 function clean(field,value,max=160,optional=false){
   if(optional&&(value===undefined||value===null||value===''))return '';
-  if(typeof value!=='string')throw Error('Missing or unsupported shipping '+field+'.');
+  if(typeof value!=='string'||/[\u0000-\u001f\u007f]/u.test(value))
+    throw Error('Missing or unsupported shipping '+field+'.');
   const s=value.normalize('NFKC').trim().replace(/\s+/gu,' ').toLowerCase();
   if((!optional&&!s)||s.length>max||/[\u0000-\u001f\u007f]/u.test(s))
     throw Error('Missing or unsupported shipping '+field+'.');
