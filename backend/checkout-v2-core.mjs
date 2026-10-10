@@ -105,7 +105,7 @@ function checkedCarrierCommitment(quote,holdUntil) {
      quote.shippingAddressVerified!==true||
      !SHIPPING_HMAC.test(quote.shippingDestinationDigest||'')||
      typeof quote.carrierQuoteExpiresAt!=='string'||
-     !/^\\d{4}-\\d{2}-\\d{2}T.*Z$/.test(quote.carrierQuoteExpiresAt)||
+     !/^\d{4}-\d{2}-\d{2}T.*Z$/.test(quote.carrierQuoteExpiresAt)||
      !Number.isFinite(Date.parse(quote.carrierQuoteExpiresAt))||
      Date.parse(quote.carrierQuoteExpiresAt)<=Date.parse(holdUntil)||
      !Array.isArray(quote.carrierRateIds)||quote.carrierRateIds.length<1||
