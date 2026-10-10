@@ -258,6 +258,37 @@ test('unbound, already-paid, wrong product order and final total conflict fail c
     assert.equal(client.operations.length,0);
   }
 });
+test('unpaid provider amount must be positive and match signed amount before any ledger operation',async()=>{
+  for(const amount of [0,-1,1.5,Number.MAX_SAFE_INTEGER+1]){
+    const client=db();
+    const provider={...expiredSession,amount_total:amount};
+    await assert.rejects(()=>recordSignedStripeTestUnpaidEventForReview(args(client,{
+      request:signed(evt(provider)),stripeSdk:sdk(provider)
+    })),/unpaid Session/);
+    assert.equal(client.operations.length,0);
+  }
+  const client=db();
+  const provider={...expiredSession,amount_total:1899};
+  await assert.rejects(()=>recordSignedStripeTestUnpaidEventForReview(args(client,{
+    stripeSdk:sdk(provider)
+  })),/unpaid Session/);
+  assert.equal(client.operations.length,0);
+});
+test('non-UTC and ambiguous reservation expiry are rejected before ledger access',async()=>{
+  for(const reservedUntil of [
+    '2026-10-10T12:55:00+00:00',
+    '2026-10-10T12:55:00',
+    'Sat, 10 Oct 2026 12:55:00 GMT',
+    '2026-10-10T12:55:00.1234Z',
+    '2026-10-10T12:55:00Zextra'
+  ]){
+    const client=db();
+    await assert.rejects(()=>recordSignedStripeTestUnpaidEventForReview(args(client,{
+      order:{...order,reservedUntil}
+    })),/reserved unpaid TEST order/);
+    assert.equal(client.operations.length,0);
+  }
+});
 test('invalid, settled or conflicting terminal-event row cannot hide provider event collision',async()=>{
   for(const change of [
     {state:'SETTLED'},
