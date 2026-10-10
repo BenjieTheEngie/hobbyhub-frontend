@@ -6,7 +6,7 @@ import {parcelsForVerifiedCart} from '../backend/carrier-rating-v2.mjs';
 import {composeOfflineLiveCarrierCommitment} from '../backend/carrier-live-commitment-offline.mjs';
 import {buildIdempotentReservationPlan} from '../backend/checkout-reservations-v2.mjs';
 import {planBindStripeTestCheckoutSession} from '../backend/stripe-test-session-binding-plan.mjs';
-import {planFinalizeSignedStripeTestOrderTotals} from '../backend/stripe-test-signed-tax-finalization-plan.mjs';
+import {planFinalizeSignedStripeTestOrderTotals,reviewAlreadyFinalizedStripeTestOrder} from '../backend/stripe-test-signed-tax-finalization-plan.mjs';
 import {recordVerifiedStripeTestEventForReview} from '../backend/stripe-test-event-inbox.mjs';
 import {reviewStripeTestCheckoutReconciliation} from '../backend/stripe-v2-reconciliation.mjs';
 import {planStripeTestAtomicCapture} from '../backend/stripe-test-atomic-capture-plan.mjs';
@@ -173,6 +173,20 @@ test('full source-only pipeline: reserve -> Stripe TEST bind -> signed tax -> ev
   const finalized={...bound,version:3,taxCents:finalize.taxCents,
     totalCents:finalize.totalCents};
 
+  // Simulate a crash after the tax update. A repeated signed webhook must
+  // independently reverify that finalized amount and require inbox/settlement
+  // without issuing another tax update or claiming the order was paid.
+  const recovered=await reviewAlreadyFinalizedStripeTestOrder({
+    request:webhook,stripeSdk:serverSdk,webhookSigningSecret:webhookSecret,
+    order:finalized,checkedAt:clock,destinationSigningKey:key,
+    orderTable:TABLES.orderTable
+  });
+  assert.equal(recovered.alreadyFinalized,true);
+  assert.equal(recovered.requiresDurableEventInbox,true);
+  assert.equal(recovered.requiresAtomicStockSettlement,true);
+  assert.equal(recovered.executable,false);
+  assert.equal('update' in recovered,false);
+
   // The signed inbox records only an event receipt, never a payment.
   const ledger=mockLedger();
   const receipt=await recordVerifiedStripeTestEventForReview({
@@ -226,7 +240,7 @@ test('full source-only pipeline: reserve -> Stripe TEST bind -> signed tax -> ev
   assert.equal(replay.alreadyRecorded,true);
   assert.equal(replay.requiresDurableSettlement,false);
   assert.equal(ledger.operations.filter(x=>x==='put').length,1);
-  const serialized=JSON.stringify({reserved,attach,finalize,receipt,captured,replay});
+  const serialized=JSON.stringify({reserved,attach,finalize,recovered,receipt,captured,replay});
   for(const sensitive of ['22 Fictional Lane','98101','Test Buyer',
     'offline-merchant-address-HMAC','whsec_','sk_test_'])
     assert.equal(serialized.includes(sensitive),false,'Sensitive text in plan: '+sensitive);
