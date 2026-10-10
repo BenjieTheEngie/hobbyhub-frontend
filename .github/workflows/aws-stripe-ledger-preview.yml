@@ -65,7 +65,6 @@ jobs:
             --template-body file://aws/stripe-v2-ledgers/template.yaml \
             --parameters ParameterKey=Stage,ParameterValue=sandbox ParameterKey=EnableStripeCheckout,ParameterValue=false \
             --role-arn arn:aws:iam::349744180170:role/HobbyHubStagingLedgerCfnExec \
-            --tags Key=Project,Value=HobbyHub Key=Environment,Value=sandbox \
             --region us-east-2 >/dev/null
           aws cloudformation wait change-set-create-complete --stack-name "$stack" --change-set-name "$preview" --region us-east-2
           aws cloudformation describe-change-set --stack-name "$stack" --change-set-name "$preview" \
