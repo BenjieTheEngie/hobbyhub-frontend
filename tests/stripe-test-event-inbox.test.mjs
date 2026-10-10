@@ -108,7 +108,7 @@ test('signed Stripe TEST payment creates only one PENDING_REVIEW event row, neve
   assert.match(record.fingerprint,/^[0-9a-f]{64}$/);
   assert.equal(record.reviewDisposition,'RECONCILE_PAID_AND_STOCK_ATOMICALLY');
   assert.equal(record.totalAuditDisposition,'MATCHED_TEST_PAYMENT_REQUIRES_ATOMIC_RECONCILIATION');
-  assert.equal(record.recordedAt,checkedAt);
+  assert.equal(record.recordedAt,new Date(checkedAt).toISOString());
   assert.equal(Object.hasOwn(record,'ttl'),false);
   assert.equal(Object.hasOwn(record,'expiresAt'),false);
   assert.equal(Object.hasOwn(record,'customer'),false);
