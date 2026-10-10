@@ -13,6 +13,7 @@ import {reviewStripeTestCheckoutReconciliation} from './stripe-v2-reconciliation
 const TABLE=/^hobbyhub-stripe-sandbox-ledgers-StripeTestEventLedger-[A-Z0-9]{8,32}$/;
 const HEX=/^[a-f0-9]{64}$/;
 const RECORD_STATE='PENDING_REVIEW';
+const DURABLE_SETTLED_STATE='SETTLED';
 const DISPOSITIONS=new Set([
   'ALREADY_REVIEWED',
   'RECONCILE_PAID_AND_STOCK_ATOMICALLY',
@@ -41,7 +42,8 @@ function checkedAtISO(value){
 }
 function validateRecordedEvent(row,event){
   if(!row||typeof row!=='object'||Array.isArray(row)||
-     row.schemaVersion!==1||row.state!==RECORD_STATE||
+     row.schemaVersion!==1||
+     ![RECORD_STATE,DURABLE_SETTLED_STATE].includes(row.state)||
      row.eventId!==event.eventId||row.provider!=='stripe'||row.mode!=='test'||
      !HEX.test(row.fingerprint||'')||
      row.orderId!==event.orderId||row.sessionId!==event.sessionId)
@@ -137,9 +139,9 @@ export async function recordVerifiedStripeTestEventForReview({
     validateRecordedEvent(existing.Item,record);
     return Object.freeze({
       kind:'stripe-test-ledger-receipt',
-      state:RECORD_STATE,alreadyRecorded:true,eventId:record.eventId,
+      state:existing.Item.state,alreadyRecorded:true,eventId:record.eventId,
       orderId:record.orderId,
-      requiresDurableSettlement:true,
+      requiresDurableSettlement:existing.Item.state!==DURABLE_SETTLED_STATE,
       paymentWriteAuthorized:false,stockWriteAuthorized:false,
       fulfillmentAuthorized:false,checkoutEnabled:false
     });
@@ -162,9 +164,9 @@ export async function recordVerifiedStripeTestEventForReview({
     validateRecordedEvent(raced.Item,record);
     return Object.freeze({
       kind:'stripe-test-ledger-receipt',
-      state:RECORD_STATE,alreadyRecorded:true,eventId:record.eventId,
+      state:raced.Item.state,alreadyRecorded:true,eventId:record.eventId,
       orderId:record.orderId,
-      requiresDurableSettlement:true,
+      requiresDurableSettlement:raced.Item.state!==DURABLE_SETTLED_STATE,
       paymentWriteAuthorized:false,stockWriteAuthorized:false,
       fulfillmentAuthorized:false,checkoutEnabled:false
     });
