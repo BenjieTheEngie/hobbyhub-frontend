@@ -154,7 +154,7 @@ test('recording requires a valid raw-body Stripe signature and exact provider/or
     {stripeSdk:sdkWithSession({...session,metadata:{orderId:'wrong'}})},
     {stripeSdk:sdkWithSession({...session,collected_information:{
       shipping_details:{address:{...address,line1:'456 Other Street'}}}
-    })},,
+    })},
     {order:{...order,taxCents:1}},
     {order:{...order,carrierQuoteExpiresAt:'2026-10-10T01:59:59Z'}},
     {destinationSigningKey:undefined}
