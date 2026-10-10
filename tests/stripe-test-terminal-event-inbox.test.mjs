@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHmac,timingSafeEqual} from 'node:crypto';
-import {recordSignedStripeTestTerminalEventForReview} from '../backend/stripe-test-terminal-event-inbox.mjs';
+import {recordSignedStripeTestTerminalEventForReview,recordSignedStripeTestUnpaidEventForReview} from '../backend/stripe-test-terminal-event-inbox.mjs';
 
 const TABLE='hobbyhub-stripe-sandbox-ledgers-StripeTestEventLedger-1TS67SSV8ILV5';
 const secret='whsec_offline_test_only_not_real';
@@ -116,6 +116,63 @@ test('signed expired unpaid TEST checkout is recorded without finalized tax or a
     'sk_test_','whsec_','payment_intent'])
     assert.equal(text.includes(privateValue),false,privateValue);
   assert.equal('ttl' in row,false);
+});
+test('signed completed but UNPAID TEST Checkout is recorded as awaiting payment, not final charge',async()=>{
+  const client=db();
+  const pending={...expiredSession,status:'complete'};
+  const result=await recordSignedStripeTestUnpaidEventForReview(args(client,{
+    request:signed(evt(pending,'checkout.session.completed')),
+    stripeSdk:sdk(pending)
+  }));
+  const row=client.rows.get(evt().id);
+  assert.equal(row.reviewDisposition,'WAIT_FOR_VERIFIED_PAYMENT');
+  assert.equal(row.totalAuditDisposition,'AWAIT_PROVIDER_PAYMENT');
+  assert.equal(row.state,'PENDING_REVIEW');
+  assert.equal(result.requiresManualReview,false);
+  assert.equal(result.requiresDurablePaymentCheck,true);
+  assert.equal(result.stockReleaseAuthorized,false);
+  assert.equal(result.paymentWriteAuthorized,false);
+  assert.equal(result.stockWriteAuthorized,false);
+  assert.equal(result.fulfillmentAuthorized,false);
+  assert.equal(result.checkoutEnabled,false);
+  assert.equal(result.holdStillActive,true);
+  assert.equal(client.operations.filter(x=>x==='put').length,1);
+  const repeated=await recordSignedStripeTestUnpaidEventForReview(args(client,{
+    request:signed(evt(pending,'checkout.session.completed')),
+    stripeSdk:sdk(pending)
+  }));
+  assert.equal(repeated.alreadyRecorded,true);
+  assert.equal(repeated.requiresManualReview,false);
+  assert.equal(client.operations.filter(x=>x==='put').length,1);
+});
+test('unpaid completed event cannot masquerade as paid or claim to be expired',async()=>{
+  const client=db();
+  const completed={...expiredSession,status:'complete'};
+  const invalid=[
+    {session:{...completed,payment_status:'paid'},type:'checkout.session.completed'},
+    {session:{...completed,status:'open'},type:'checkout.session.completed'},
+    {session:{...completed,status:'expired'},type:'checkout.session.completed'},
+    {session:completed,type:'checkout.session.async_payment_succeeded'}
+  ];
+  for(const {session:provider,type} of invalid){
+    await assert.rejects(()=>recordSignedStripeTestUnpaidEventForReview(args(client,{
+      request:signed(evt(provider,type)),stripeSdk:sdk(provider)
+    })));
+  }
+  assert.equal(client.rows.size,0);
+});
+test('one Stripe event ID cannot switch from pending completion to terminal expiry',async()=>{
+  const client=db();
+  const completed={...expiredSession,status:'complete'};
+  await recordSignedStripeTestUnpaidEventForReview(args(client,{
+    request:signed(evt(completed,'checkout.session.completed')),
+    stripeSdk:sdk(completed)
+  }));
+  await assert.rejects(()=>recordSignedStripeTestUnpaidEventForReview(args(client,{
+    request:signed(evt(expiredSession,'checkout.session.expired')),
+    stripeSdk:sdk(expiredSession)
+  })),/inconsistent|collision/);
+  assert.equal(client.operations.filter(x=>x==='put').length,1);
 });
 test('signed async payment failure after hold expires remains manual review, never automatic restock',async()=>{
   const client=db();

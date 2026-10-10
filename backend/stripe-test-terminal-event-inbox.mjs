@@ -5,7 +5,7 @@ import {verifiedWebhookEventFingerprint} from './payment-webhook-review.mjs';
  * OFFLINE/TEST-ONLY terminal Checkout webhook inbox. No Lambda or live route,
  * AWS client, Stripe keys, automated refunds, stock releases or payments.
  *
- * Failure/expiry events can precede finalized Stripe Tax. Unlike a paid
+ * Unpaid completion, expiry and async-failure events can precede finalized Stripe Tax. Unlike a paid
  * event, they MUST NOT be forced through finalized tax/total reconciliation.
  * They still require SDK raw-body signature verification, an independently
  * server-retrieved TEST Session, and a strongly consistent, conditional
@@ -14,9 +14,11 @@ import {verifiedWebhookEventFingerprint} from './payment-webhook-review.mjs';
 const TABLE=/^hobbyhub-stripe-sandbox-ledgers-StripeTestEventLedger-[A-Z0-9]{8,32}$/;
 const SESSION=/^cs_test_[A-Za-z0-9_]{8,200}$/;
 const HEX=/^[a-f0-9]{64}$/;
-const EVENT_TYPES=new Set(['checkout.session.expired','checkout.session.async_payment_failed']);
-const REVIEW='REVIEW_RELEASE_WITH_LATE_PAYMENT_SAFEGUARDS';
+const EVENT_TYPES=new Set(['checkout.session.completed','checkout.session.expired','checkout.session.async_payment_failed']);
+const TERMINAL_REVIEW='REVIEW_RELEASE_WITH_LATE_PAYMENT_SAFEGUARDS';
+const AWAIT_PAYMENT='WAIT_FOR_VERIFIED_PAYMENT';
 const AUDITS=Object.freeze({
+  'checkout.session.completed':'AWAIT_PROVIDER_PAYMENT',
   'checkout.session.expired':'REVIEW_EXPIRED_SESSION_BEFORE_STOCK_RELEASE',
   'checkout.session.async_payment_failed':'REVIEW_PROVIDER_STATE_MISMATCH'
 });
@@ -31,6 +33,7 @@ function validateInputs({event,session,order,now}){
      session.payment_status!=='unpaid'||
      !Number.isSafeInteger(session.amount_total)||
      session.amount_total!==event.amountTotalCents||
+     (event.type==='checkout.session.completed'&&session.status!=='complete')||
      (event.type==='checkout.session.expired'&&session.status!=='expired')||
      (event.type==='checkout.session.async_payment_failed'&&
         !['complete','expired'].includes(session.status)))
@@ -66,7 +69,7 @@ function validateExisting(row,record){
     row.state!=='PENDING_REVIEW'||row.eventId!==record.eventId||
     row.orderId!==record.orderId||row.sessionId!==record.sessionId||
     !HEX.test(row.fingerprint||'')||
-    row.reviewDisposition!==REVIEW||
+    row.reviewDisposition!==record.reviewDisposition||
     row.totalAuditDisposition!==record.totalAuditDisposition||
     !Number.isFinite(Date.parse(row.recordedAt)))
     throw Error('Existing terminal Stripe TEST event receipt is inconsistent: manual investigation required.');
@@ -78,7 +81,8 @@ function duplicate(record,holdStillActive){
     kind:'stripe-test-terminal-event-receipt',
     eventId:record.eventId,orderId:record.orderId,
     state:'PENDING_REVIEW',alreadyRecorded:true,
-    holdStillActive,requiresManualReview:true,
+    holdStillActive,
+    requiresManualReview:record.reviewDisposition!==AWAIT_PAYMENT,
     requiresDurablePaymentCheck:true,
     stockReleaseAuthorized:false,paymentWriteAuthorized:false,
     stockWriteAuthorized:false,fulfillmentAuthorized:false,
@@ -90,7 +94,7 @@ function duplicate(record,holdStillActive){
  * ledgerClient must be a trusted isolated DocumentClient get/put wrapper;
  * production IAM and a real endpoint are NOT provisioned by this module.
  */
-export async function recordSignedStripeTestTerminalEventForReview({
+export async function recordSignedStripeTestUnpaidEventForReview({
   request,stripeSdk,webhookSigningSecret,order,
   checkedAt,ledgerClient,eventTable
 }={}){
@@ -110,7 +114,8 @@ export async function recordSignedStripeTestTerminalEventForReview({
     state:'PENDING_REVIEW',
     fingerprint:verifiedWebhookEventFingerprint(event),
     orderId:event.orderId,sessionId:event.sessionId,
-    reviewDisposition:REVIEW,
+    reviewDisposition:event.type==='checkout.session.completed'?
+      AWAIT_PAYMENT:TERMINAL_REVIEW,
     totalAuditDisposition:AUDITS[event.type],
     recordedAt:now
   });
@@ -144,3 +149,8 @@ export async function recordSignedStripeTestTerminalEventForReview({
     alreadyRecorded:false
   });
 }
+
+// Backwards-compatible name for existing expired/async-failed integrations.
+// Both names are source-only; neither is an AWS Lambda or public endpoint.
+export const recordSignedStripeTestTerminalEventForReview=
+  recordSignedStripeTestUnpaidEventForReview;
