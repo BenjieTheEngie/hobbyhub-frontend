@@ -106,7 +106,7 @@ test('only carrier-committed pre-tax quotes can preserve full-destination eviden
   ));
   const locked={
     ...basic,carrierRateConfirmedForPayment:true,rateMode:'live',
-    rateProvider:'easypost',shippingAddressVerified:true,
+    rateProvider:'easypost',shippingAddressVerified:true,shippingState:'MA',
     shippingDestinationDigest:'hmac-v1-'+'a'.repeat(64),
     carrierRateIds:[
       'rate_abcdefgh123456','rate_qwertyuiop123456','rate_mnopqrstuv123456'
