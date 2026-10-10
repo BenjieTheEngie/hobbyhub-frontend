@@ -13,6 +13,7 @@ const address={country:'US',state:'MA',postal_code:'02382',city:'Whitman',
   line1:'123 Test Street',line2:''};
 const order={
   orderId:'order-123',stripeSessionId:'cs_test_abcdefgh123456',
+  paymentSessionId:'cs_test_abcdefgh123456',
   paymentMode:'test',version:2,status:'RESERVED',paymentStatus:'PENDING',
   fulfillmentStatus:'UNFULFILLED',currency:'usd',shippingCountry:'US',
   shippingMethod:'domestic_shipping',pickupAvailable:false,
