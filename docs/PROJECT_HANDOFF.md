@@ -1,8 +1,21 @@
 # Hobby Hub — project handoff / restart guide
 
-> **Last checked:** 2026-10-09, including merged launch preparation through `767e6be9`. Intended as a durable reference for continuing development in a **new ChatGPT conversation** when the original chat becomes too long.
+> **Last checked:** 2026-10-10 UTC, including merged webhook source code and live two-table AWS staging verification (see latest updates below). Intended as a durable reference for continuing development in a **new ChatGPT conversation** when the original chat becomes too long.
 >
 > **Authoritative source:** GitHub repository `BenjieTheEngie/hobbyhub-frontend`, branch `main`. Do not rely on this document instead of checking current GitHub commits, CI results and actual AWS resources before changes.
+
+## Checkout V2 continued — signed test webhook inbox and pinned data IAM draft (2026-10-10 UTC)
+
+**Newest merged work supersedes earlier paragraphs saying no webhook inbox adapter is written.** Actual AWS staging infrastructure is still ONLY the two empty Stripe ledger tables described below. These changes are source/tests and documentation, not Lambda/webhook deployments:
+
+- PR **#66**, merged `d2a0c337`, all required CI green: `backend/stripe-test-event-inbox.mjs` validates the signed Stripe TEST event, immutable order/provider totals, Stripe Tax, signed full-address shipping quote and persisted replay fingerprint; then uses an injected client for **strongly consistent GetItem** and **conditional PutItem** into ONLY the exact Stripe TEST event ledger name. New records remain `PENDING_REVIEW` and are not settled; replay, concurrent delivery, collisions and DB failure are fail-closed. `backend/stripe-v2-reconciliation.mjs` exposes its verified event fingerprint.
+- PR **#67**, merged `b6b2fc4d`, all five required CI green including real **official Stripe SDK** signature integration: `backend/stripe-test-session-fetch.mjs` uses the verified raw webhook's `cs_test_` ID to call the trusted server-side Stripe SDK `checkout.sessions.retrieve`. Client-supplied Checkout Session objects cannot replace the provider response; signature checks occur before provider/API lookup or DynamoDB activity.
+- PR **#68**, merged `5f23b80a`, all CI green: adds an exact physical event-ledger **draft IAM GetItem/PutItem policy** `aws/iam/hobbyhub-stripe-test-inbox-ddb-data-policy.json`, scoped to `evt_*` keys with a required leading-key context. A read-only AWS IAM policy simulation allowed exact TEST event Get/Put and denied scans, missing/wrong keys, the checkout request ledger and the original Inventory table. **Policy is NOT attached to any AWS role.** No new AWS writes occurred.
+- **Deployment blocker:** source-only code is NOT an AWS Lambda/API Gateway route. Test-mode Stripe endpoint+signing secret and test-key storage, server-authoritative Order V2/Stock V2 snapshots and atomic settlement, isolated IAM Lambda execution role, carrier quotes, production tax/fulfillment tests remain absent. The `HobbyHubStagingDeploy` role still only previews change sets and `HobbyHubStagingLedgerCfnExec` controls tables but cannot read/write items. ChatGPT AWS Core still presents AWS root; DO NOT deploy as root or grant broad roles.
+- Owner confirmed AWS promotional credits totaling $120 at original read; credits may pay eligible staging costs. Owner **prefers deferring AWS Budgets until credits run out**. Respect the preference; clearly disclose that promotional credits are **not a hard cost limit** and don't guarantee all charges are covered. No budget created in this work.
+- **Business inputs remaining:** shipping origin ZIP, preferred eligible carriers (USPS/UPS), actual packed product dimensions/weights, owner-reviewed eligible SKUs, merchant shipping/refund/tax policies. No live checkout or stock migration without separate explicit go/no-go.
+
+Next safe tasks: isolate an authenticated Orders V2/Stock V2 staging read path and a reviewed Lambda IAM+secrets stack (test only), implement atomic order/stock settlement tied to pending event receipts, test webhook retries and Stripe async paid/expired outcomes. Do not treat event PENDING_REVIEW as authorization to ship or mark paid. Detailed design: `docs/STRIPE_TEST_WEBHOOK_INBOX.md`, `docs/STRIPE_TEST_INBOX_IAM_REVIEW.md`.
 
 ## LIVE AWS state update — Stripe sandbox ledgers now deployed (2026-10-10 UTC)
 
