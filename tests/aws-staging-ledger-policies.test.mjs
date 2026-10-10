@@ -19,6 +19,7 @@ test('GitHub deployment role can alter only its one known sandbox CloudFormation
   for(const action of cfn.Action)assert.match(action,/^cloudformation:/);
   assert.ok(cfn.Action.includes('cloudformation:CreateChangeSet'));
   assert.ok(!cfn.Action.includes('cloudformation:ExecuteChangeSet'));
+  assert.ok(!cfn.Action.includes('cloudformation:CreateStack'));
   assert.ok(!cfn.Action.includes('cloudformation:UpdateStack'));
   assert.ok(!cfn.Action.includes('cloudformation:DeleteStack'));
   assert.ok(!cfn.Action.includes('cloudformation:CreateStackSet'));
