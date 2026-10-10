@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ConfigureOnlyTwoFreshCheckoutV2SandboxTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateTable",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:TagResource"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-2:349744180170:table/hobbyhub-checkout-v2-sandbox-foundation-StockV2-*",
+        "arn:aws:dynamodb:us-east-2:349744180170:table/hobbyhub-checkout-v2-sandbox-foundation-OrdersV2-*"
+      ]
+    }
+  ]
+}
