@@ -247,6 +247,52 @@ test('invalid settled receipts cannot suppress further verification',async()=>{
     assert.equal(client.calls.filter(x=>x.operation==='put').length,1);
   }
 });
+test('a concurrent webhook that settles during a conditional Put conflict forces fresh order read',async()=>{
+  const client=store();
+  const originalPut=client.put.bind(client);
+  client.put=async params=>{
+    // Simulates other replica winning pending receipt Put then completing
+    // an independent atomic Order/Stock/Event settle before our losing Put
+    // returns. Our caller's RESERVED order snapshot is now stale.
+    await originalPut(params);
+    const row=client.rows.get(params.Item.eventId);
+    client.rows.set(params.Item.eventId,{
+      ...row,state:'SETTLED',settledAt:'2026-10-10T02:05:00.000Z',
+      settledOrderVersion:3
+    });
+    const err=new Error('other replica won the insert');
+    err.name='ConditionalCheckFailedException';
+    throw err;
+  };
+  await assert.rejects(
+    ()=>recordVerifiedStripeTestEventForReview(args(client)),
+    /fresh, strongly consistent paid-order reread/
+  );
+  assert.equal(client.calls.filter(c=>c.operation==='get').length,2);
+  assert.equal(client.calls.filter(c=>c.operation==='put').length,1);
+  // The other transaction is only simulated in memory. Our losing worker
+  // must NOT claim already-settled success or make any stock/payment write.
+  assert.equal(client.rows.get(event.id).state,'SETTLED');
+});
+test('concurrent settled conflict does not trust a caller-supplied PAID order without a post-conflict reread',async()=>{
+  const client=store();
+  const originalPut=client.put.bind(client);
+  client.put=async params=>{
+    await originalPut(params);
+    const row=client.rows.get(params.Item.eventId);
+    client.rows.set(params.Item.eventId,{
+      ...row,state:'SETTLED',settledAt:'2026-10-10T02:05:00.000Z',
+      settledOrderVersion:3
+    });
+    const err=new Error('other replica settled the event');
+    err.name='ConditionalCheckFailedException';
+    throw err;
+  };
+  await assert.rejects(
+    ()=>recordVerifiedStripeTestEventForReview(args(client,{order:paidOrder()})),
+    /fresh, strongly consistent paid-order reread|prepayment reservation/
+  );
+});
 test('two concurrent replicas race on atomic conditional Put and exactly one stores event',async()=>{
   const client=store();
   const [a,b]=await Promise.all([
