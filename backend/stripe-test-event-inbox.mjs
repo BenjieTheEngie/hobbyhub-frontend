@@ -1,5 +1,6 @@
 import {retrieveSignedStripeTestSession} from './stripe-test-session-fetch.mjs';
 import {reviewStripeTestCheckoutReconciliation} from './stripe-v2-reconciliation.mjs';
+import {verifiedWebhookEventFingerprint} from './payment-webhook-review.mjs';
 
 /**
  * NOT a Lambda handler. Offline-testable, source-only adapter for the already
@@ -124,6 +125,35 @@ export async function recordVerifiedStripeTestEventForReview({
   const existing=await lookup();
   if(existing===null||typeof existing!=='object'||Array.isArray(existing))
     throw Error('Trusted DynamoDB Get result is required.');
+
+  // A paid/settled order is no longer RESERVED. Duplicate deliveries of
+  // the already-SETTLED signed event must return a NO-WRITE receipt without
+  // re-running pre-payment audits that correctly require RESERVED status.
+  // Verify signature, server-retrieved provider session, immutable event
+  // fingerprint and order identity FIRST; never authorize a stock action.
+  if(existing.Item?.state===DURABLE_SETTLED_STATE){
+    const verified={
+      eventId:authenticated.eventId,orderId:authenticated.orderId,
+      sessionId:authenticated.sessionId,
+      fingerprint:verifiedWebhookEventFingerprint(authenticated)
+    };
+    validateRecordedEvent(existing.Item,verified);
+    if(!order||order.orderId!==authenticated.orderId||
+       order.stripeSessionId!==authenticated.sessionId||
+       order.paymentMode!=='test'||
+       retrievedSession.payment_status!==authenticated.paymentStatus||
+       retrievedSession.amount_total!==authenticated.amountTotalCents||
+       retrievedSession.currency!==authenticated.currency)
+      throw Error('Already-settled Stripe TEST receipt differs from stored order or provider session.');
+    return Object.freeze({
+      kind:'stripe-test-ledger-receipt',
+      state:DURABLE_SETTLED_STATE,alreadyRecorded:true,
+      eventId:authenticated.eventId,orderId:authenticated.orderId,
+      requiresDurableSettlement:false,
+      paymentWriteAuthorized:false,stockWriteAuthorized:false,
+      fulfillmentAuthorized:false,checkoutEnabled:false
+    });
+  }
 
   const previousEvents=new Map();
   if(OWN(existing,'Item')&&existing.Item!==undefined){
