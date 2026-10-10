@@ -8,7 +8,7 @@ These JSON documents describe the **smallest useful first staging step**: potent
 
 ## Two-role separation
 
-1. **GitHub OIDC entry role:** already verified existing `HobbyHubStagingDeploy`. Proposed inline policy `aws/iam/hobbyhub-ledger-github-deploy-policy.json` permits CloudFormation change-set/stack API operations **only** on the named sandbox ledger stack and `iam:PassRole` **only** for a separately restricted execution role when passed specifically to `cloudformation.amazonaws.com`.
+1. **GitHub OIDC entry role:** already verified existing `HobbyHubStagingDeploy`. Proposed inline policy `aws/iam/hobbyhub-ledger-github-deploy-policy.json` permits **preview-only** CloudFormation change-set/stack API operations (explicitly excluding `ExecuteChangeSet` and `UpdateStack`) **only** on the named sandbox ledger stack and `iam:PassRole` **only** for a separately restricted execution role when passed specifically to `cloudformation.amazonaws.com`.
 2. **CloudFormation execution role:** **does NOT exist** yet. Proposed name `HobbyHubStagingLedgerCfnExec`, trust document `aws/iam/hobbyhub-ledger-cfn-exec-trust.json`, permission document `aws/iam/hobbyhub-ledger-cfn-exec-policy.json`. Permissions are exclusively non-data DynamoDB table control-plane operations for table name prefixes belonging to the two new sandbox ledgers. Explicitly no `dynamodb:PutItem`, `GetItem`, `Query`, `Scan`, `DeleteItem`, `TransactWriteItems`, IAM principals or old inventory table permissions. No `DeleteTable` provisioned; tables also use CloudFormation Retain/PITR.
 3. The execution role is restricted **by what it can do**, even if someone with separate authority could cause CloudFormation to use it. Its service trust alone does not restrict which CloudFormation stack may invoke it; attaching the exact policy and limiting `iam:PassRole` is essential. Confirm any confused-deputy conditions with AWS IAM before creation.
 
@@ -30,11 +30,11 @@ AWS IAM `SimulateCustomPolicy` was executed against the exact proposed policy JS
 
 ## Approval and deployment sequence
 
-These instructions are an outline only; **do not yet attach policies or create roles**. Before any write:
+The merchant has indicated that the account's $120 promotional credits may be used for necessary staging development. **This does not remove the need to bootstrap IAM through a non-root operational principal and review any CloudFormation execution separately.** Before any write:
 
-1. Owner expressly approves creation of the new IAM execution role and narrowly scoped policy attachment. The existing GitHub OIDC role will otherwise remain an authentication-only smoke-test identity.
+1. Provision a non-root administrative/bootstrap identity or have the account owner securely perform the one-time IAM bootstrap; do not use the root-connected AWS Core session to create infrastructure. Review creation of the new IAM execution role and narrowly scoped policy attachment. The existing GitHub OIDC role will otherwise remain an authentication-only smoke-test identity.
 2. Run AWS IAM Policy Simulator or an equivalent reviewer-verified test for **both** roles and the exact CloudFormation change-set actions and DynamoDB PITR/Retain behavior. A tool-based positive test is not a substitute for independent policy review. Resolve missing least-privilege permissions *without using wildcard admin grants*.
-3. Owner separately approves potentially **billable** creation of the **two empty sandbox DynamoDB tables** and their PITR configuration, with expected retention and a small cost budget. Review a concrete CloudFormation change set before execution; no deployment of the original `hobbyhub` stack.
+3. Confirm available credits, credit eligibility and expiration and establish a budget alert; then separately review potentially **billable** creation of the **two empty sandbox DynamoDB tables** and their PITR configuration, with expected retention and a small cost budget. Review a concrete CloudFormation change set before execution; no deployment of the original `hobbyhub` stack.
 4. After explicit approval, create the narrow CloudFormation execution role, attach reviewed policies, and run first staging changes with GitHub OIDC on the trusted main branch. Validate account ID, new table prefix, region, key schema, encryption, PITR and empty records. Do not configure Stripe payment collection.
 5. For a future Stripe webhook Lambda, new CUSTOMER Orders and Stock V2, **start a separate least-privilege permission review**. This first draft does not authorize them.
 
