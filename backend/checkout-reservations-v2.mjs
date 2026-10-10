@@ -45,6 +45,8 @@ function orderDigest(quote) {
     shippingAddressVerified:quote.shippingAddressVerified??false,
     carrierQuoteExpiresAt:quote.carrierQuoteExpiresAt??null,
     carrierRateIds:quote.carrierRateIds??null,
+    ratedParcelCount:quote.ratedParcelCount??null,
+    carrierRateDetails:quote.carrierRateDetails??null,
     carrierRateConfirmedForPayment:quote.carrierRateConfirmedForPayment??false,
     rateProvider:quote.rateProvider??null,
     rateMode:quote.rateMode??null,
