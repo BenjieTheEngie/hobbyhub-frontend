@@ -5,7 +5,6 @@
       "Sid": "PreviewOnlySandboxStripeLedgerCloudFormationChangeSet",
       "Effect": "Allow",
       "Action": [
-        "cloudformation:CreateStack",
         "cloudformation:CreateChangeSet",
         "cloudformation:DeleteChangeSet",
         "cloudformation:DescribeChangeSet",
