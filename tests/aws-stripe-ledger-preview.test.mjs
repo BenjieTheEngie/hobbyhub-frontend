@@ -29,6 +29,7 @@ test('review-only GitHub OIDC IAM policy cannot execute CloudFormation changes',
   const actions=iam.Statement.flatMap(x=>Array.isArray(x.Action)?x.Action:[x.Action]);
   assert.ok(actions.includes('cloudformation:CreateChangeSet'));
   assert.ok(!actions.includes('cloudformation:ExecuteChangeSet'));
+  assert.ok(!actions.includes('cloudformation:CreateStack'));
   assert.ok(!actions.includes('cloudformation:UpdateStack'));
   assert.ok(!actions.includes('cloudformation:DeleteStack'));
   assert.ok(actions.includes('iam:PassRole'));
