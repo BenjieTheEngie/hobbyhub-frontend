@@ -90,22 +90,36 @@ export function aggregateMultiParcelRates(ratedParcels){
     ratedParcels.length>MAX_PARCELS_PER_ORDER)
     throw Error('One to eight verified parcel rate results are required.');
   const selected=[];
+  const seenRates=new Set(),seenParcels=new Set();
   let shippingCents=0;
   for(const parcel of ratedParcels){
     const opts=parcel?.options;
-    if(!Array.isArray(opts)||!opts.length)throw Error('At least one parcel has no carrier rate; no final quote is available.');
+    if(!Array.isArray(opts)||!opts.length)
+      throw Error('At least one parcel has no carrier rate; no final quote is available.');
+    if(!ID.test(parcel.productId||'')||
+      !Number.isSafeInteger(parcel.unit)||parcel.unit<1||parcel.unit>20)
+      throw Error('A verified productId and physical unit identity are required for each parcel.');
+    const parcelKey=JSON.stringify([parcel.productId,parcel.unit]);
+    if(seenParcels.has(parcelKey))
+      throw Error('A physical parcel cannot be rated twice.');
+    seenParcels.add(parcelKey);
     const eligible=opts.filter(rate=>rate?.provider==='easypost'&&rate?.mode==='test'&&
-      CARRIERS.has(rate.carrier)&&Number.isSafeInteger(rate.shippingCents)&&
-      rate.shippingCents>=1&&rate.shippingCents<=500000);
+      CARRIERS.has(rate.carrier)&&rate.currency==='usd'&&
+      typeof rate.service==='string'&&safeService.test(rate.service)&&
+      typeof rate.rateId==='string'&&/^rate_[A-Za-z0-9]{8,80}$/.test(rate.rateId)&&
+      Number.isSafeInteger(rate.shippingCents)&&
+      rate.shippingCents>=1&&rate.shippingCents<=50000);
     if(!eligible.length)throw Error('Unverified carrier rate cannot be used.');
     const best=eligible.reduce((a,b)=>a.shippingCents<=b.shippingCents?a:b);
-    if(best.provider!=='easypost'||best.mode!=='test'||!CARRIERS.has(best.carrier)||
-      !Number.isSafeInteger(best.shippingCents)||best.shippingCents<1)
-      throw Error('Unverified carrier rate cannot be used.');
-    selected.push({...best,productId:parcel.productId||null,unit:parcel.unit??null});
+    // An EasyPost rate ID is tied to one shipment. Reusing the same selected
+    // rate for two packages would imply a false combined shipping price.
+    if(seenRates.has(best.rateId))
+      throw Error('Selected carrier rate ID cannot be reused across separate parcels.');
+    seenRates.add(best.rateId);
+    selected.push({...best,productId:parcel.productId,unit:parcel.unit});
     shippingCents+=best.shippingCents;
   }
-  if(!Number.isSafeInteger(shippingCents)||shippingCents>500000)
+  if(!Number.isSafeInteger(shippingCents)||shippingCents>50000)
     throw Error('Multi-parcel shipment price exceeds limits.');
   return {provider:'easypost',mode:'test',method:'domestic_shipping',
     parcelCount:selected.length,shippingCents,selectedRates:selected,
