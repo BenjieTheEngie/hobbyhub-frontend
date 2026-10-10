@@ -50,6 +50,14 @@ function validateRecordedEvent(row,event){
     throw Error('Existing Stripe event ledger row is inconsistent: manual review required.');
   if(row.fingerprint!==event.fingerprint)
     throw Error('Stripe event ID collision with a different verified payload.');
+  if(row.state===DURABLE_SETTLED_STATE &&
+    (!Number.isSafeInteger(row.settledOrderVersion)||
+      row.settledOrderVersion<2||
+      typeof row.settledAt!=='string'||
+      !Number.isFinite(Date.parse(row.settledAt))||
+      !Number.isFinite(Date.parse(row.recordedAt))||
+      Date.parse(row.settledAt)<Date.parse(row.recordedAt)))
+    throw Error('Settled Stripe receipt requires durable matching transaction metadata.');
 }
 function makeRecord(review,checkedAt){
   if(!review||review.kind!=='stripe-test-v2-inert-reconciliation'||
