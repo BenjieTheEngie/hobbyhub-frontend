@@ -1,0 +1,23 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageOnlyNewEmptySandboxStripeLedgerTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateTable",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:UpdateContinuousBackups",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:TagResource"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-2:349744180170:table/hobbyhub-stripe-sandbox-ledgers-StripeTestEventLedger-*",
+        "arn:aws:dynamodb:us-east-2:349744180170:table/hobbyhub-stripe-sandbox-ledgers-StripeTestCheckoutRequestLedger-*"
+      ]
+    }
+  ]
+}
