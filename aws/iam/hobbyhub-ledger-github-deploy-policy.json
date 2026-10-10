@@ -2,13 +2,10 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "CloudFormationOnlyForSandboxStripeLedgerStack",
+      "Sid": "PreviewOnlySandboxStripeLedgerCloudFormationChangeSet",
       "Effect": "Allow",
       "Action": [
-        "cloudformation:CreateStack",
-        "cloudformation:UpdateStack",
         "cloudformation:CreateChangeSet",
-        "cloudformation:ExecuteChangeSet",
         "cloudformation:DeleteChangeSet",
         "cloudformation:DescribeChangeSet",
         "cloudformation:DescribeStacks",
