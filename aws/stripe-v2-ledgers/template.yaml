@@ -1,5 +1,4 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Transform: AWS::Serverless-2016-10-31
 Description: Hobby Hub isolated Stripe TEST reconciliation ledgers only. No checkout, webhook endpoint, secrets, stock migration or payment permissions.
 Parameters:
   Stage:
