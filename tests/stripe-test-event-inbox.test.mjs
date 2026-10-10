@@ -135,6 +135,36 @@ test('repeated delivery of exact same event uses consistent read and causes no s
   assert.deepEqual(client.calls.map(x=>x.operation),['get','put','get']);
   assert.equal(client.rows.size,1);
 });
+test('after atomic settlement, same signed TEST event replays without writing or recapturing stock',async()=>{
+  const client=store();
+  await recordVerifiedStripeTestEventForReview(args(client));
+  const row=client.rows.get(event.id);
+  client.rows.set(event.id,{...row,state:'SETTLED',
+    settledAt:'2026-10-10T02:05:00.000Z',settledOrderVersion:3});
+  const replay=await recordVerifiedStripeTestEventForReview(args(client));
+  assert.equal(replay.alreadyRecorded,true);
+  assert.equal(replay.state,'SETTLED');
+  assert.equal(replay.requiresDurableSettlement,false);
+  for(const field of ['paymentWriteAuthorized','stockWriteAuthorized',
+    'fulfillmentAuthorized','checkoutEnabled'])
+    assert.equal(replay[field],false);
+  assert.equal(client.calls.filter(c=>c.operation==='put').length,1);
+});
+test('invalid settled receipts cannot suppress further verification',async()=>{
+  for(const variant of [
+    {state:'SETTLED'}, {state:'SETTLED',settledAt:'invalid',settledOrderVersion:3},
+    {state:'SETTLED',settledAt:'2026-10-10T01:00:00Z',settledOrderVersion:3},
+    {state:'SETTLED',settledAt:'2026-10-10T02:05:00Z',settledOrderVersion:1},
+    {state:'SETTLED',settledAt:'2026-10-10T02:05:00Z',settledOrderVersion:3,fingerprint:'b'.repeat(64)}
+  ]){
+    const client=store();
+    await recordVerifiedStripeTestEventForReview(args(client));
+    const original=client.rows.get(event.id);
+    client.rows.set(event.id,{...original,...variant});
+    await assert.rejects(()=>recordVerifiedStripeTestEventForReview(args(client)),/metadata|collision|inconsistent/);
+    assert.equal(client.calls.filter(x=>x.operation==='put').length,1);
+  }
+});
 test('two concurrent replicas race on atomic conditional Put and exactly one stores event',async()=>{
   const client=store();
   const [a,b]=await Promise.all([
