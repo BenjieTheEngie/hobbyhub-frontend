@@ -38,9 +38,9 @@ Resources:
         - Key: Project
           Value: HobbyHub
         - Key: Environment
-          Value: sandbox
+          Value: !Ref Stage
         - Key: CheckoutEnabled
-          Value: 'false'
+          Value: !Ref EnableCheckout
   OrdersV2:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
@@ -61,10 +61,13 @@ Resources:
         - Key: Project
           Value: HobbyHub
         - Key: Environment
-          Value: sandbox
+          Value: !Ref Stage
         - Key: CheckoutEnabled
-          Value: 'false'
+          Value: !Ref EnableCheckout
 Outputs:
+  StockMigrationEnabled:
+    Description: Explicit immutable OFF state for stock migration.
+    Value: !Ref EnableStockMigration
   StockTableName:
     Description: Empty Stock V2 table, keyed by productId. Not populated.
     Value: !Ref StockV2
