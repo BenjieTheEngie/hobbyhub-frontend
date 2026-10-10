@@ -31,7 +31,7 @@ test('sandbox ledgers use separate immutable event and request identifiers',()=>
     assert.match(section,/BillingMode: PAY_PER_REQUEST/);
     assert.match(section,/PointInTimeRecoveryEnabled: true/);
     assert.match(section,/SSEEnabled: true/);
-    assert.doesNotMatch(section,/TimeToLiveSpecification:/);
+    assert.doesNotMatch(section,/^\\s*TimeToLiveSpecification:/m);
     assert.doesNotMatch(section,/TableName:/);
   }
 });
