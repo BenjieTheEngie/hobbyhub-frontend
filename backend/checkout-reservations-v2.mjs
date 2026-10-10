@@ -39,6 +39,15 @@ function orderDigest(quote) {
     shippingCountry:quote.shippingCountry,
     shippingMethod:quote.shippingMethod,
     shippingRegion:quote.shippingRegion,
+    // Destination low-entropy address data belongs ONLY inside a keyed,
+    // server-created HMAC, never inside an unkeyed hash or durable ledger.
+    shippingDestinationDigest:quote.shippingDestinationDigest??null,
+    shippingAddressVerified:quote.shippingAddressVerified??false,
+    carrierQuoteExpiresAt:quote.carrierQuoteExpiresAt??null,
+    carrierRateIds:quote.carrierRateIds??null,
+    carrierRateConfirmedForPayment:quote.carrierRateConfirmedForPayment??false,
+    rateProvider:quote.rateProvider??null,
+    rateMode:quote.rateMode??null,
     items:quote.items.map(({productId,sku,qty,unitPriceCents,lineTotalCents})=>
       ({productId,sku,qty,unitPriceCents,lineTotalCents}))
   })).digest('hex');
