@@ -1,5 +1,7 @@
 # Hobby Hub AWS sandbox: merchant IAM bootstrap + cost controls
 
+> **DEPLOYED 2026-10-10 UTC:** Both approved Stripe sandbox ledgers are ACTIVE and PITR-enabled. The GitHub OIDC and CloudFormation execution roles have the narrowly scoped permissions described below; bootstrap and first-preview instructions farther down are historical and should **not** be repeated. AWS remains billed pay per request and original Inventory/Products are unchanged. See [verified deployment record](STRIPE_LEDGER_DEPLOYMENT_VERIFICATION_20261010.md). A merchant cost budget remains recommended; the last verified read reported none configured.
+
 **Operator instructions.** Prepared October 9, 2026. The repository includes the exact JSON files, but **no IAM policy is attached, no CloudFormation service role is created, no sandbox table is deployed, and no AWS Budget has been configured as of the latest read-only verification**.
 
 ## Verified AWS IAM checkpoint — October 9, 2026
