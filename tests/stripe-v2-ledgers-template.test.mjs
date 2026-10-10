@@ -9,6 +9,11 @@ function block(from,to){
   assert.ok(start>=0&&finish>start,'Expected distinct ledger resources');
   return text.slice(start,finish);
 }
+test('Stripe TEST ledger needs no executable SAM transform to define only DynamoDB tables',()=>{
+  assert.doesNotMatch(text,/^Transform:\s*AWS::Serverless-2016-10-31/m);
+  assert.doesNotMatch(text,/^Transform:/m);
+  assert.match(text,/^AWSTemplateFormatVersion: '2010-09-09'/m);
+});
 test('Stripe TEST ledger stack cannot activate Checkout by a parameter change',()=>{
   const before=text.split('Resources:')[0];
   assert.match(before,/EnableStripeCheckout:\s*\n\s+Type: String\s*\n\s+Default: 'false'\s*\n\s+AllowedValues: \['false'\]/);
