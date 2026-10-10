@@ -87,12 +87,46 @@ test('carrier network errors and wrong-mode responses fail closed, without quoti
 });
 test('combined package quote only sums actual verified provider rates, never estimates',()=>{
   const rates=verifiedEasyPostRateOptions({mode:'test',rates:[sampleRate]});
-  const combined=aggregateMultiParcelRates([{productId:'p-01',unit:1,options:rates},{productId:'p-01',unit:2,options:rates}]);
+  const secondRates=verifiedEasyPostRateOptions({
+    mode:'test',rates:[{...sampleRate,id:'rate_b12345678901'}]
+  });
+  const combined=aggregateMultiParcelRates([
+    {productId:'p-01',unit:1,options:rates},
+    {productId:'p-01',unit:2,options:secondRates}
+  ]);
   assert.equal(combined.shippingCents,846);
   assert.equal(combined.parcelCount,2);
   assert.equal(combined.chargeable,false);
   assert.throws(()=>aggregateMultiParcelRates([{options:[]}]),/no carrier rate/);
   assert.throws(()=>aggregateMultiParcelRates([]),/One to eight/);
+});
+test('test carrier aggregator refuses repeated provider rate IDs across distinct physical parcels',()=>{
+  const rates=verifiedEasyPostRateOptions({mode:'test',rates:[sampleRate]});
+  assert.throws(()=>aggregateMultiParcelRates([
+    {productId:'p-01',unit:1,options:rates},
+    {productId:'p-01',unit:2,options:rates}
+  ]),/reused/);
+  const changed=verifiedEasyPostRateOptions({mode:'test',rates:[
+    {...sampleRate,id:'rate_unique123456789'}
+  ]});
+  assert.throws(()=>aggregateMultiParcelRates([
+    {productId:'p-01',unit:1,options:rates},
+    {productId:'p-01',unit:1,options:changed}
+  ]),/rated twice/);
+});
+test('test carrier rate aggregator requires original USD rate IDs, approved provider and amounts',()=>{
+  const rate=verifiedEasyPostRateOptions({mode:'test',rates:[sampleRate]})[0];
+  const parcel=(option,extra={})=>({productId:'p-01',unit:1,
+    options:[option],...extra});
+  for(const altered of [
+    {rateId:'invalid'}, {carrier:'ROYAL'}, {service:'illegal/service'},
+    {mode:'live'}, {provider:'untrusted'}, {currency:'cad'},
+    {shippingCents:0}, {shippingCents:50001}
+  ])assert.throws(()=>aggregateMultiParcelRates([parcel({...rate,...altered})]),/Unverified/);
+  for(const bad of [
+    {productId:undefined},{productId:''},{unit:0},{unit:1.5},
+    {unit:undefined}
+  ])assert.throws(()=>aggregateMultiParcelRates([parcel(rate,bad)]),/identity/);
 });
 test('carrier-based checkout estimate remains unpaid and lacks tax/final price',()=>{
   const rated=aggregateMultiParcelRates([{productId:'p-01',unit:1,
