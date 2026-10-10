@@ -14,6 +14,7 @@ const TABLE=/^hobbyhub-stripe-sandbox-ledgers-StripeTestEventLedger-[A-Z0-9]{8,3
 const HEX=/^[a-f0-9]{64}$/;
 const RECORD_STATE='PENDING_REVIEW';
 const DISPOSITIONS=new Set([
+  'ALREADY_REVIEWED',
   'RECONCILE_PAID_AND_STOCK_ATOMICALLY',
   'WAIT_FOR_VERIFIED_PAYMENT',
   'REVIEW_RELEASE_WITH_LATE_PAYMENT_SAFEGUARDS',
@@ -141,6 +142,9 @@ export async function recordVerifiedStripeTestEventForReview({
       fulfillmentAuthorized:false,checkoutEnabled:false
     });
   }
+
+  if(review.disposition==='ALREADY_REVIEWED')
+    throw Error('A replay-only event must not create a new pending review record.');
 
   try{
     await ledgerClient.put({
