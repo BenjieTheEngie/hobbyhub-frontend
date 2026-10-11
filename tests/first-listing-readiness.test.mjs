@@ -26,3 +26,5 @@ test('missing stock, wrong quantity, price drift and changed fingerprint fail cl
  {product:{...product,salePrice:8}},{product:{...product,finish:'foil'}}])
  assert.equal(run(patch).ready,false);
 });
+
+test('missing, zero or invalid seller-confirmed expectations cannot pass',()=>{\n for(const patch of [{expectedQuantity:0},{expectedQuantity:undefined},{expectedPrice:undefined},{expectedPrice:7.505}])\n assert.throws(()=>run(patch),/Seller-confirmed/);\n});\n
