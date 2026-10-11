@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {catalogApprovalConfigAudit} from '../backend/catalog-approval-config-audit.mjs';
+test('no approvals without configured table',()=>assert.equal(catalogApprovalConfigAudit({HOBBYHUB_CATALOG_APPROVAL_WRITES_ENABLED:'true'}).writesEnabled,false));
+test('approval writes require explicit opt-in',()=>{const e={HOBBYHUB_PRODUCTS_TABLE:'products',HOBBYHUB_CATALOG_APPROVALS_TABLE:'approvals'};assert.equal(catalogApprovalConfigAudit(e).writesEnabled,false);assert.equal(catalogApprovalConfigAudit({...e,HOBBYHUB_CATALOG_APPROVAL_WRITES_ENABLED:'true'}).writesEnabled,true)});
