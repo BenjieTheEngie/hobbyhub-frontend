@@ -1,0 +1,1 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {sellerStockBoundary} from '../backend/seller-stock-boundary.mjs';test('foreign seller blocked',()=>assert.equal(sellerStockBoundary({actorSellerId:'b',listing:{listingId:'l',sellerId:'a',status:'ACTIVE'},stock:{productId:'l'}}).authorized,false));
