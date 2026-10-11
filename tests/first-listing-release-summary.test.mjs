@@ -1,0 +1,1 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {firstListingReleaseSummary} from '../backend/first-listing-release-summary.mjs';test('empty state cannot launch',()=>{const x=firstListingReleaseSummary({});assert.equal(x.publicListingReady,false);assert.equal(x.checkoutReady,false);assert.equal(x.paymentsEnabled,false)});
