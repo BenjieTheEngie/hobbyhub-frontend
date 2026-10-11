@@ -1,0 +1,2 @@
+import {stockV2ConfigAudit} from './stock-v2-config-audit.mjs';import {catalogApprovalConfigAudit} from './catalog-approval-config-audit.mjs';
+export function adminServiceCapabilities(env){const stock=stockV2ConfigAudit(env),catalog=catalogApprovalConfigAudit(env);return {stock:{configured:stock.ready,writesEnabled:stock.writesEnabled,initializationEnabled:stock.initializationEnabled},catalog:{configured:catalog.ready,writesEnabled:catalog.writesEnabled},paymentsEnabled:false};}
