@@ -1,0 +1,2 @@
+import {launchBlockerReport} from './launch-blocker-report.mjs';import {releaseSafetyGate} from './release-safety-gate.mjs';
+export function firstListingReleaseSummary(state){const blockers=launchBlockerReport(state);const release=releaseSafetyGate(state);return {readyForReview:blockers.ready,publicListingReady:release.publicListingReady,checkoutReady:release.checkoutReady,blockers:blockers.blockers,paymentsEnabled:false};}
