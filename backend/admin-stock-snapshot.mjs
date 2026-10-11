@@ -1,0 +1,2 @@
+import {verifiedStockRows} from './stock-v2-logic.mjs';
+export function adminStockSnapshot(products,stockRows){if(!Array.isArray(products))throw Error('Complete product snapshot required.');const balances=new Map(verifiedStockRows(stockRows).map(x=>[x.productId,x]));const seen=new Set();return products.map(p=>{if(typeof p?.productId!=='string'||seen.has(p.productId))throw Error('Invalid or duplicate productId.');seen.add(p.productId);return {productId:p.productId,sku:p.sku||'',productName:p.productName||'',stock:balances.get(p.productId)||null}});}
