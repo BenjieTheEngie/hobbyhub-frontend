@@ -1,0 +1,2 @@
+export const FIRST_LISTING_DEPLOYMENT_REQUIREMENTS=Object.freeze(['account-verified','stack-create-complete','tables-active','pitr-enabled','kms-enabled','least-privilege-iam','admin-authenticated','stock-write-disabled','catalog-write-disabled','payments-disabled','migration-disabled']);
+export function verifyDeploymentManifest(verified){if(!Array.isArray(verified))throw Error('Verification evidence required.');const present=new Set(verified);const missing=FIRST_LISTING_DEPLOYMENT_REQUIREMENTS.filter(x=>!present.has(x));return {verified:missing.length===0,missing};}
