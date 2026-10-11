@@ -95,8 +95,19 @@ export function safePublicProduct(product,stock) {
 }
 export function joinedPublicCatalog(products,balances) {
   if(!Array.isArray(products))throw Error('Complete product snapshot required.');
-  const verified=verifiedStockRows(balances);
-  const stocks=new Map(verified.map(row=>[row.productId,row]));
+  if(!Array.isArray(balances))throw Error('Stock snapshot must be a complete list.');
+  const stocks=new Map();
+  for(const row of balances){
+    if(!row||typeof row.productId!=='string'||!ID.test(row.productId)||
+       !Number.isSafeInteger(row.quantityOnHand)||row.quantityOnHand<0||
+       !Number.isSafeInteger(row.reserved)||row.reserved<0||row.reserved>row.quantityOnHand||
+       row.quantityAvailable!==row.quantityOnHand-row.reserved||
+       !Number.isSafeInteger(row.version)||row.version<1||
+       !Number.isSafeInteger(row.reorderPoint)||row.reorderPoint<0)
+      throw Error('Stock snapshot contains an invalid reserved/on-hand balance.');
+    if(stocks.has(row.productId))throw Error('Stock snapshot contains duplicate product IDs.');
+    stocks.set(row.productId,row);
+  }
   const counts=new Map();
   for(const p of products) {
     const sku=String(p?.sku||'').trim().toLowerCase();
