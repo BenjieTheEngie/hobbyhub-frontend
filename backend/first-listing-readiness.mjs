@@ -5,7 +5,11 @@ import {stockBalance} from './stock-v2-logic.mjs';
 export function firstListingReadiness({product,stock,approval,expectedPrice,expectedQuantity}){
   if(!product||typeof product.productId!=='string'||!product.productId)
     throw Error('Verified original product record required.');
-  if(typeof expectedPrice!=='number'||!Number.isFinite(expectedPrice)||expectedPrice<=0||\n     Math.abs(expectedPrice*100-Math.round(expectedPrice*100))>1e-6||\n     !Number.isSafeInteger(expectedQuantity)||expectedQuantity<1)\n    throw Error('Seller-confirmed positive price and physical quantity are required.');\n  const checks=[];
+  if(typeof expectedPrice!=='number'||!Number.isFinite(expectedPrice)||expectedPrice<=0||
+     Math.abs(expectedPrice*100-Math.round(expectedPrice*100))>1e-6||
+     !Number.isSafeInteger(expectedQuantity)||expectedQuantity<1)
+    throw Error('Seller-confirmed positive price and physical quantity are required.');
+  const checks=[];
   const add=(code,ok,detail)=>checks.push({code,ok:Boolean(ok),detail});
   add('product-identity',/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(product.productId),
     'Product identity must be immutable and verified.');
