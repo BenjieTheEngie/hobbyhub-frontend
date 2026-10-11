@@ -11,7 +11,9 @@ test('new Checkout V2 staging workflow is opt-in, main-only, never PR or automat
   assert.doesNotMatch(workflow,/^  pull_request:/m);
   assert.match(workflow,/id-token: write/);
   assert.match(workflow,/role-to-assume: arn:aws:iam::349744180170:role\/HobbyHubStagingDeploy/);
-  assert.match(workflow,/allowed-account-ids: '349744180170'/);
+  assert.doesNotMatch(workflow,/allowed-account-ids:/);
+  assert.match(workflow,/aws sts get-caller-identity --query Arn/);
+  assert.match(workflow,/arn:aws:sts::349744180170:assumed-role\/HobbyHubStagingDeploy/);
 });
 test('staging workflow only proposes two standalone tables under inert locked flags',()=>{
   assert.match(workflow,/sam validate --lint --template-file "\$template"/);
