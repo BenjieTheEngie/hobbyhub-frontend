@@ -1,0 +1,2 @@
+import {validateInitialization} from './stock-v2-logic.mjs';
+export function stockInitializationPreview({productId,existingStock,input}){if(typeof productId!=='string'||!productId)throw Error('Exact productId required.');const request=validateInitialization(input);if(existingStock)return {allowed:false,reason:'ALREADY_INITIALIZED',productId};return {allowed:request.onHand===1&&request.reorderPoint===0,reason:request.onHand===1&&request.reorderPoint===0?null:'FIRST_LISTING_COUNT_MISMATCH',productId,request,writesPerformed:false};}
