@@ -1,0 +1,2 @@
+import {approvalForProduct} from './publication-approvals.mjs';
+export function adminApprovalSnapshot(products,approvals){if(!Array.isArray(products)||!Array.isArray(approvals))throw Error('Complete snapshots required.');const byId=new Map();for(const a of approvals){if(!a||typeof a.productId!=='string'||byId.has(a.productId))throw Error('Invalid or duplicate approval identity.');byId.set(a.productId,a)}return products.map(p=>({productId:p.productId,approved:approvalForProduct(p,byId.get(p.productId)),revision:byId.get(p.productId)?.revision??0}));}
