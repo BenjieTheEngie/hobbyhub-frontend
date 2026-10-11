@@ -1,0 +1,1 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {adminRequestAuthGate} from '../backend/admin-request-auth-gate.mjs';test('anonymous access rejected',()=>assert.equal(adminRequestAuthGate({httpMethod:'GET'}).status,401));test('method cannot bypass authentication',()=>assert.equal(adminRequestAuthGate({httpMethod:'POST'}).status,401));
