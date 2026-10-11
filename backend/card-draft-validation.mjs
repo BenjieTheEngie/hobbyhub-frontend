@@ -5,7 +5,7 @@ const ID=/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const SKU=/^[A-Za-z0-9][A-Za-z0-9._:-]{1,79}$/;
 const GAMES=new Set(['Magic: The Gathering','Pokémon','Yu-Gi-Oh!']);
 const CONDITIONS=new Set(['NM','LP','MP','HP','DMG']);
-const FINISHES=new Set(['nonfoil','foil','etched']);
+const FINISHES=new Set(['nonfoil','foil','etched','party-foil']);
 const LANGUAGES=new Set(['English','Japanese','French','German','Italian','Spanish','Portuguese','Korean','Chinese']);
 function requiredString(value,max,label){
   if(typeof value!=='string'||!value.trim()||value!==value.trim()||value.length>max)
