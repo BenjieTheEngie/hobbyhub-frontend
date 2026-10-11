@@ -31,14 +31,14 @@ jobs:
         run: |
           set -euo pipefail
           sam --version
-          for template in aws/stock-v2/template.yaml aws/order-ops/template.yaml aws/carrier-preview/template.yaml aws/legacy-stock-read/template.yaml; do
+          for template in aws/stock-v2/template.yaml aws/order-ops/template.yaml aws/carrier-preview/template.yaml aws/legacy-stock-read/template.yaml aws/first-listing-readonly/template.yaml; do
             echo "Validating $template"
             sam validate --lint --template-file "$template"
           done
       - name: Build all isolated Lambda packages
         run: |
           set -euo pipefail
-          for stack in stock-v2 order-ops carrier-preview legacy-stock-read; do
+          for stack in stock-v2 order-ops carrier-preview legacy-stock-read first-listing-readonly; do
             echo "Building isolated $stack service (no deployment)"
             sam build --template-file "aws/$stack/template.yaml" --build-dir ".aws-sam/build-$stack"
           done
