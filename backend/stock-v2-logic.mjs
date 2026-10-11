@@ -94,7 +94,9 @@ export function safePublicProduct(product,stock) {
     condition:product.condition||'',finish:product.finish||'',language:product.language||''};
 }
 export function joinedPublicCatalog(products,balances) {
-  const stocks=new Map(balances.map(x=>[x?.productId,x]).filter(([id,row])=>id && row));
+  if(!Array.isArray(products))throw Error('Complete product snapshot required.');
+  const verified=verifiedStockRows(balances);
+  const stocks=new Map(verified.map(row=>[row.productId,row]));
   const counts=new Map();
   for(const p of products) {
     const sku=String(p?.sku||'').trim().toLowerCase();
