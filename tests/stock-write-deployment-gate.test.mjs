@@ -1,0 +1,1 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {stockWriteDeploymentGate} from '../backend/stock-write-deployment-gate.mjs';test('unverified deployment blocks stock writes',()=>assert.deepEqual(stockWriteDeploymentGate({},true),{allowWrites:false,allowInitialize:false}));
