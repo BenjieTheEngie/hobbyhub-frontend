@@ -1,0 +1,1 @@
+export function launchBlockerReport({stockReady=false,metadataReady=false,approvalReady=false,carrierReady=false,checkoutTested=false}={}){const flags={stockReady,metadataReady,approvalReady,carrierReady,checkoutTested};const blockers=Object.entries(flags).filter(([,v])=>v!==true).map(([k])=>k);return {ready:blockers.length===0,blockers,livePaymentsEnabled:false};}
