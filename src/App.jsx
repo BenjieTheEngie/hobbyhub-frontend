@@ -4,6 +4,7 @@ import InventoryWorkspace from "./components/InventoryWorkspace.jsx";
 import LegacyStockReadPanel from "./components/LegacyStockReadPanel.jsx";
 import CatalogApprovalAdmin from "./components/CatalogApprovalAdmin.jsx";
 import CatalogReadinessPanel from "./components/CatalogReadinessPanel.jsx";
+import FirstListingReadinessAdmin from "./components/FirstListingReadinessAdmin.jsx";
 import ProductEditor from "./components/ProductEditor.jsx";
 import OrderWorkbench from "./components/OrderWorkbench.jsx";
 import PilotOrderAudit from "./components/PilotOrderAudit.jsx";
@@ -18,6 +19,7 @@ import {stockRequest,normalizeStockResponse,mergeVerifiedStock,canEditStock,comp
 const API_BASE_URL = "https://13bdy276e1.execute-api.us-east-2.amazonaws.com";
 const INVENTORY_API_BASE_URL = String(import.meta.env.VITE_INVENTORY_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || API_BASE_URL).replace(/\/$/, "");
 const USE_LEGACY_PRODUCT_ROUTES = !String(import.meta.env.VITE_INVENTORY_API_BASE_URL || "").trim();
+const FIRST_LISTING_READ_API_BASE_URL = String(import.meta.env.VITE_FIRST_LISTING_READ_API_BASE_URL||"").trim().replace(/\/$/, "");
 const STOCK_V2_API_BASE_URL = String(import.meta.env.VITE_STOCK_API_BASE_URL||"").trim().replace(/\/$/, "");
 const ORDER_OPS_API_BASE_URL = String(import.meta.env.VITE_ORDER_OPS_API_BASE_URL||"").trim().replace(/\/$/, "");
 const CARRIER_PREVIEW_API_BASE_URL = String(import.meta.env.VITE_CARRIER_PREVIEW_API_BASE_URL||"").trim().replace(/\/$/, "");
@@ -457,6 +459,7 @@ async function updateStock(product,quantity) {
 <LegacyStockReadPanel products={products} apiBase={LEGACY_STOCK_READ_API_BASE_URL} token={token}/>
 <CatalogApprovalAdmin apiBase={STOCK_V2_API_BASE_URL} token={token}/>
 <CatalogReadinessPanel products={products}/>
+<FirstListingReadinessAdmin apiBase={FIRST_LISTING_READ_API_BASE_URL} token={token}/>
 
 <OrderWorkbench
   orders={orders}
