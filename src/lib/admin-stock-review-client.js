@@ -1,0 +1,2 @@
+import {normalizeStockResponse} from './stockV2Client.js';
+export async function fetchAdminStockSnapshot(base,token,fetchImpl=fetch){if(!/^https:\/\//i.test(base||'')||!token)throw Error('Authenticated HTTPS stock API required.');const res=await fetchImpl(base.replace(/\/$/,'')+'/ops/stock-v2',{method:'GET',headers:{Authorization:'Bearer '+token},cache:'no-store'});const data=await res.json().catch(()=>({}));if(!res.ok)throw Error(data.message||'Stock unavailable.');return normalizeStockResponse(data);}
