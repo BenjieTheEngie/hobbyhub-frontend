@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Hobby Hub isolated first-listing admin read-only API using EXISTING DynamoDB tables; no writes
+Parameters:
+  ExistingProductsTable:
+    Type: String
+    Default: hobbyhub-ProductsTable-KC31XDEOENBG
+  ExistingStockV2Table:
+    Type: String
+    Default: hobbyhub-checkout-v2-sandbox-foundation-StockV2-H1M0PKNJVOL5
+  ExistingApprovalTable:
+    Type: String
+    Default: hobbyhub-first-listing-ledgers-sandbox-PublicationApprovals-BU9JO5S2LGQD
+  CognitoUserPoolId:
+    Type: String
+    Default: us-east-2_5QRb2tWcT
+  CognitoClientId:
+    Type: String
+    Default: 9qrtgdn5dtoqhc3brmr03mgn0
+  FrontendOrigin:
+    Type: String
+    Default: https://hobbyhub.company
+  AdminGroupName:
+    Type: String
+    Default: hobbyhub-admin
+Resources:
+  ReadOnlyAdminApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: [!Ref FrontendOrigin]
+        AllowMethods: [GET, OPTIONS]
+        AllowHeaders: [authorization, content-type]
+      Auth:
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              audience: [!Ref CognitoClientId]
+              issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPoolId}'
+  FirstListingReadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../../backend/
+      Handler: first-listing-admin-handler.firstListingAdminHandler
+      Runtime: nodejs22.x
+      Timeout: 15
+      MemorySize: 256
+      Environment:
+        Variables:
+          HOBBYHUB_PRODUCTS_TABLE: !Ref ExistingProductsTable
+          HOBBYHUB_STOCK_V2_TABLE: !Ref ExistingStockV2Table
+          HOBBYHUB_CATALOG_APPROVALS_TABLE: !Ref ExistingApprovalTable
+          HOBBYHUB_ALLOWED_ORIGIN: !Ref FrontendOrigin
+          HOBBYHUB_ADMIN_GROUP: !Ref AdminGroupName
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [dynamodb:GetItem]
+              Resource:
+                - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingProductsTable}'
+                - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingStockV2Table}'
+                - !Sub 'arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${ExistingApprovalTable}'
+      Events:
+        GetFirstListingReadiness:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ReadOnlyAdminApi
+            Method: GET
+            Path: /ops/first-listing-readiness
+            Auth: {Authorizer: CognitoJwt}
+Outputs:
+  ReadOnlyAdminApiUrl:
+    Value: !Sub 'https://${ReadOnlyAdminApi}.execute-api.${AWS::Region}.amazonaws.com'
