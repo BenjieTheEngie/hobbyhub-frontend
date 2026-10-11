@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {stockV2ConfigAudit} from '../backend/stock-v2-config-audit.mjs';
+test('missing dependencies fail closed',()=>{const r=stockV2ConfigAudit({HOBBYHUB_STOCK_V2_WRITES_ENABLED:'true'});assert.equal(r.writesEnabled,false);assert.equal(r.missing.length,3)});
+test('initialization requires explicit dual flags and tables',()=>{const e={HOBBYHUB_STOCK_V2_TABLE:'stock',HOBBYHUB_STOCK_V2_AUDIT_TABLE:'audit',HOBBYHUB_PRODUCTS_TABLE:'products',HOBBYHUB_STOCK_V2_WRITES_ENABLED:'true'};assert.equal(stockV2ConfigAudit(e).initializationEnabled,false);assert.equal(stockV2ConfigAudit({...e,HOBBYHUB_STOCK_V2_INIT_ENABLED:'true'}).initializationEnabled,true)});
