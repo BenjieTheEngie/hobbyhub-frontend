@@ -1,0 +1,1 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {catalogPublicationDeploymentGate} from '../backend/catalog-publication-deployment-gate.mjs';test('authorization cannot bypass missing service config',()=>assert.equal(catalogPublicationDeploymentGate({}, {authenticated:true,reviewed:true,authorized:true}).allowPublicListing,false));
