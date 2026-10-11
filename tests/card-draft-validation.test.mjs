@@ -24,3 +24,10 @@ test('card draft requires card-specific metadata and safe identifiers',()=>{
  assert.equal(validateCardDraft({...base,imageUrl:'https://example.com/card.png'}).imageUrl,
  'https://example.com/card.png');
 });
+
+test('Deadpool party foil is a valid distinct finish',()=>{
+ const draft=validateCardDraft({...base,finish:'party-foil',quantity:1,salePrice:7.50});
+ assert.equal(draft.finish,'party-foil');
+ assert.equal(draft.quantity,1);
+ assert.equal(draft.published,false);
+});
