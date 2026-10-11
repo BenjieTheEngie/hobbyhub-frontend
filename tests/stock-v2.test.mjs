@@ -60,7 +60,7 @@ test('duplicate legacy SKU groups are never made public by accident',()=>{
     {productId:'c',sku:'PKM-001',productName:'C',published:true,salePrice:9},
     {productId:'d',sku:'YGO-001',productName:'D',salePrice:5}
   ];
-  const balances=['a','b','c','d'].map(productId=>({productId,quantityOnHand:4,reserved:0,reorderPoint:1,version:1}));
+  const balances=['a','b','c','d'].map(productId=>({productId,quantityOnHand:4,reserved:0,quantityAvailable:4,reorderPoint:1,version:1}));
   const items=joinedPublicCatalog(products,balances);
   assert.deepEqual(items.map(x=>x.sku),['PKM-001']);
 });
