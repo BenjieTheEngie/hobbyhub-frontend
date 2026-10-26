@@ -183,3 +183,17 @@ test('release requires trusted event key and separated table identities',()=>{
   assert.throws(()=>expire(order,{auditTable:'TESTSTOCK'}),/Three separate/);
   assert.throws(()=>expire(order,{evidence:{...evidence,eventId:'invalid'}}),/expiry/);
 });
+
+test('release rejects ambiguous or non-UTC timestamps for provider evidence and reservation',()=>{
+  const order=reserve().order;
+  for(const invalid of [
+    '2026-10-09T19:00:00-04:00',
+    '2026-10-09T19:00:00',
+    '2026-10-09T19:00:00+00:00',
+    '2026-10-09'
+  ]){
+    assert.throws(()=>expire(order,{now:invalid}),/ISO timestamp/);
+    assert.throws(()=>expire(order,{evidence:{...evidence,providerCheckedAt:invalid}}),/ISO timestamp/);
+    assert.throws(()=>expire({...order,reservedUntil:invalid}),/ISO timestamp/);
+  }
+});
