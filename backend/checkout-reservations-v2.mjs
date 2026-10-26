@@ -21,7 +21,7 @@ function requiredDistinctTables(stockTable,orderTable,ledgerTable) {
     throw Error('Three separate verified stock, orders and idempotency tables are required.');
 }
 function validTimestamp(value) {
-  if(typeof value!=='string' || !/^\d{4}-\d{2}-\d{2}T/.test(value) ||
+  if(typeof value!=='string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value) ||
      !Number.isFinite(Date.parse(value)))
     throw Error('Valid ISO timestamp is required.');
   return Date.parse(value);
